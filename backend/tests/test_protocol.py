@@ -63,7 +63,7 @@ def test_parse_unknown_message_keeps_raw():
     ("Z1VOL", "-35.5", "-35.5 dB"),
     ("Z1AIF", "42", "42"),                 # ukendt værdi -> rå værdi
     ("IS2IN", "Plex", "Plex"),
-    ("IS2ARC", "1", "Til"),
+    ("IS2ARC", "1", "On"),
     ("NOPE", "x", "x"),
     ("Z1BRT", "", ""),                     # tom værdi får ikke enhed på
     ("Z1BRT", "   ", "   "),               # heller ikke whitespace
@@ -149,7 +149,7 @@ async def test_connect_refused_gives_specific_message():
     port = await f.start()
     await f.stop()  # porten er nu lukket
     c = _client(port)
-    with pytest.raises(AvmConnectionError, match="afviste forbindelsen"):
+    with pytest.raises(AvmConnectionError, match="refused the connection"):
         await c.connect()
 
 

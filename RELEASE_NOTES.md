@@ -2,6 +2,10 @@
 
 ---
 
+## v0.4.0 — 2026-10-02 — Engelsk brugerflade
+
+- Hele appen taler nu engelsk: menuer, knapper, labels, værdier, fejlbeskeder og hændelseslog.
+
 ## v0.3.0 — 2026-10-02 — Versionsmenu
 
 **Nyt:**

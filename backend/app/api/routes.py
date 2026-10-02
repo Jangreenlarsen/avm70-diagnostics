@@ -61,7 +61,7 @@ async def disconnect(request: Request) -> dict:
 @router.post("/refresh")
 async def refresh(request: Request, group: str | None = None) -> dict:
     if group is not None and group not in catalog.GROUP_TITLES:
-        raise HTTPException(400, f"Ukendt gruppe: {group!r} — gyldige: {', '.join(catalog.GROUP_TITLES)}")
+        raise HTTPException(400, f"Unknown group: {group!r} — valid: {', '.join(catalog.GROUP_TITLES)}")
     try:
         await service(request).refresh(group)
     except NotConnectedError as exc:
@@ -71,7 +71,7 @@ async def refresh(request: Request, group: str | None = None) -> dict:
 
 def _parse_settings(body: dict, base: config.DeviceSettings) -> config.DeviceSettings:
     if not isinstance(body, dict):
-        raise HTTPException(400, "Forventede et JSON-objekt")
+        raise HTTPException(400, "Expected a JSON object")
     try:
         return config.validate(body, base)
     except config.SettingsError as exc:
@@ -90,7 +90,7 @@ async def put_settings(request: Request, body: dict) -> dict:
     try:
         config.save_device_settings(new)
     except OSError as exc:
-        raise HTTPException(500, f"Kunne ikke gemme indstillingerne: {exc}") from None
+        raise HTTPException(500, f"Could not save the settings: {exc}") from None
     await dev.apply_settings(new)
     return asdict(new)
 
@@ -108,7 +108,7 @@ async def reset_settings(request: Request) -> dict:
     try:
         config.SETTINGS_FILE.unlink(missing_ok=True)
     except OSError as exc:
-        raise HTTPException(500, f"Kunne ikke slette {config.SETTINGS_FILE.name}: {exc}") from None
+        raise HTTPException(500, f"Could not delete {config.SETTINGS_FILE.name}: {exc}") from None
     defaults = config.env_defaults()
     await dev.apply_settings(defaults)
     return asdict(defaults)
@@ -118,11 +118,11 @@ async def reset_settings(request: Request) -> dict:
 async def query(request: Request, body: QueryBody) -> dict:
     command = body.command.strip().upper().rstrip(";")
     if command == "":
-        raise HTTPException(400, "Skriv en kommando, fx Z1VOL?")
+        raise HTTPException(400, "Enter a command, e.g. Z1VOL?")
     if not command.endswith("?"):
-        raise HTTPException(400, "Kun forespørgsler (KODE?) er tilladt — appen er kun læsende")
+        raise HTTPException(400, "Only queries (CODE?) are allowed — the app is read-only")
     if not _QUERY_RE.match(command):
-        raise HTTPException(400, "Ugyldig kommando — kun bogstaver og tal efterfulgt af ?, fx Z1VOL?")
+        raise HTTPException(400, "Invalid command — only letters and digits followed by ?, e.g. Z1VOL?")
     try:
         return await service(request).raw_query(command[:-1])
     except NotConnectedError as exc:

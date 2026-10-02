@@ -61,29 +61,29 @@ def validate(data: dict, base: DeviceSettings | None = None) -> DeviceSettings:
     host = merged.get("host")
     host = host.strip() if isinstance(host, str) else ""
     if host == "":
-        raise SettingsError("Host/IP må ikke være tom")
+        raise SettingsError("Host/IP must not be empty")
     if any(ch.isspace() for ch in host):
-        raise SettingsError("Host/IP må ikke indeholde mellemrum")
+        raise SettingsError("Host/IP must not contain spaces")
     try:
         port = int(merged.get("port", 14999))
         poll = float(merged.get("poll_interval", 2.0))
         conn_to = float(merged.get("connect_timeout", 5.0))
         query_to = float(merged.get("query_timeout", 1.5))
     except (TypeError, ValueError):
-        raise SettingsError("Port, interval og timeouts skal være tal") from None
+        raise SettingsError("Port, interval and timeouts must be numbers") from None
     if not 1 <= port <= 65535:
-        raise SettingsError("Port skal være mellem 1 og 65535")
+        raise SettingsError("Port must be between 1 and 65535")
     if poll != 0 and not 0.5 <= poll <= 60:
-        raise SettingsError("Poll-interval skal være 0 (slået fra) eller mellem 0,5 og 60 sekunder")
+        raise SettingsError("Poll interval must be 0 (disabled) or between 0.5 and 60 seconds")
     # Under 3 s når Windows ikke at melde en afvist forbindelse (den prøver
     # SYN igen i ~2 s), så "afvist" ville fejlagtigt blive vist som timeout.
     if not 3 <= conn_to <= 60:
-        raise SettingsError("Connect-timeout skal være mellem 3 og 60 sekunder")
+        raise SettingsError("Connect timeout must be between 3 and 60 seconds")
     if not 0.2 <= query_to <= 10:
-        raise SettingsError("Svar-timeout skal være mellem 0,2 og 10 sekunder")
+        raise SettingsError("Response timeout must be between 0.2 and 10 seconds")
     for flag in ("auto_reconnect", "auto_connect"):
         if not isinstance(merged.get(flag, True), bool):
-            raise SettingsError(f"{flag} skal være sand/falsk")
+            raise SettingsError(f"{flag} must be true/false")
     return DeviceSettings(
         host, port, poll, conn_to, query_to,
         merged.get("auto_reconnect", True), merged.get("auto_connect", True),
@@ -104,10 +104,10 @@ def load_device_settings() -> DeviceSettings:
     try:
         data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
-            raise ValueError("forventede et JSON-objekt")
+            raise ValueError("expected a JSON object")
         return validate(data, base)
     except (OSError, ValueError) as exc:  # SettingsError er en ValueError
-        logger.warning("Ignorerer ugyldig %s (%s) — bruger .env-værdier", SETTINGS_FILE, exc)
+        logger.warning("Ignoring invalid %s (%s) — using .env values", SETTINGS_FILE, exc)
         return base
 
 

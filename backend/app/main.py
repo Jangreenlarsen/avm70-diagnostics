@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
     device = DeviceService(settings)
     app.state.device = device
     version = config.app_version()
-    logger.info("AVM70 Diagnostics v%s build %s — AVM70 på %s:%s",
+    logger.info("AVM70 Diagnostics v%s build %s — AVM70 at %s:%s",
                 version.get("version"), version.get("build"), settings.host, settings.port)
     if settings.auto_connect:
         await device.start()

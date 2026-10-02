@@ -22,9 +22,9 @@ INPUTS = "inputs"
 
 GROUP_TITLES = {
     SYSTEM: "System",
-    VERSION: "Versioner",
+    VERSION: "Versions",
     ZONE1: "Zone 1",
-    AUDIO: "Lyd (zone 1)",
+    AUDIO: "Audio (zone 1)",
     VIDEO: "Video (zone 1)",
     ZONE2: "Zone 2",
     INPUTS: "Inputs",
@@ -36,7 +36,7 @@ RUNTIME_GROUPS = (ZONE1, AUDIO, VIDEO, ZONE2)
 # Hentes ved forbindelse og manuel opdatering (ikke polling).
 STATIC_GROUPS = (SYSTEM, VERSION)
 
-ON_OFF = {"0": "Fra", "1": "Til"}
+ON_OFF = {"0": "Off", "1": "On"}
 
 
 @dataclass(frozen=True)
@@ -55,70 +55,70 @@ class Command:
 _COMMANDS = [
     # --- System ---
     Command("IDM", "Model", SYSTEM),
-    Command("GCDN", "Enhedsnavn", SYSTEM),
-    Command("NMST", "Netværksforbindelse", SYSTEM),
+    Command("GCDN", "Device name", SYSTEM),
+    Command("NMST", "Network connection", SYSTEM),
     Command("EMAC", "Ethernet MAC", SYSTEM, is_mac=True),
     Command("WMAC", "Wi-Fi MAC", SYSTEM, is_mac=True),
-    Command("GCTXS", "IP/RS-232 status-udsendelse", SYSTEM,
-            {"0": "Fra", "1": "IP til", "2": "IP og RS-232 til"}, numeric_lookup=True),
-    Command("GCFPB", "Frontpanel-lysstyrke", SYSTEM),
-    Command("ICN", "Antal aktive inputs", SYSTEM),
+    Command("GCTXS", "IP/RS-232 status broadcast", SYSTEM,
+            {"0": "Off", "1": "IP on", "2": "IP and RS-232 on"}, numeric_lookup=True),
+    Command("GCFPB", "Front panel brightness", SYSTEM),
+    Command("ICN", "Active inputs", SYSTEM),
     # --- Versioner ---
     # Koder og betydning fra AVM70's egen web-UI (http://<avm>/js/merged.min.js,
     # COMMAND-tabellen under "// info" og "// network module").
-    Command("IDQ", "Samlet identifikation", VERSION),
-    Command("GSN", "Serienummer", VERSION),
-    Command("IDS", "MCU-version (hovedfirmware)", VERSION),
-    Command("DSPIDS", "DSP-version", VERSION),
-    Command("LCDIDS", "LCD-controller-version", VERSION),
-    Command("IDB", "Software build-dato", VERSION),
-    Command("IDH", "Hardware-version", VERSION),
+    Command("IDQ", "Combined identification", VERSION),
+    Command("GSN", "Serial number", VERSION),
+    Command("IDS", "MCU version (main firmware)", VERSION),
+    Command("DSPIDS", "DSP version", VERSION),
+    Command("LCDIDS", "LCD controller version", VERSION),
+    Command("IDB", "Software build date", VERSION),
+    Command("IDH", "Hardware version", VERSION),
     Command("IDR", "Region", VERSION),
-    Command("NMSVER", "Netværksmodul — software", VERSION),
-    Command("NMHVER", "Netværksmodul — hardware", VERSION),
-    Command("RVER", "Netværksmodul — release-version", VERSION),
-    Command("RBD", "Netværksmodul — release build-dato", VERSION),
-    Command("NMR", "Netværksmodul — region", VERSION),
+    Command("NMSVER", "Network module — software", VERSION),
+    Command("NMHVER", "Network module — hardware", VERSION),
+    Command("RVER", "Network module — release version", VERSION),
+    Command("RBD", "Network module — release build date", VERSION),
+    Command("NMR", "Network module — region", VERSION),
     # --- Zone 1 ---
-    Command("Z1POW", "Power", ZONE1, {"0": "Standby", "1": "Tændt"}),
-    Command("Z1VOL", "Volumen", ZONE1, unit="dB"),
-    Command("Z1PVOL", "Volumen (procent)", ZONE1, unit="%"),
-    Command("Z1MUT", "Mute", ZONE1, {"0": "Fra", "1": "Muted"}),
-    Command("Z1INP", "Input-nummer", ZONE1),
+    Command("Z1POW", "Power", ZONE1, {"0": "Standby", "1": "On"}),
+    Command("Z1VOL", "Volume", ZONE1, unit="dB"),
+    Command("Z1PVOL", "Volume (percent)", ZONE1, unit="%"),
+    Command("Z1MUT", "Mute", ZONE1, {"0": "Off", "1": "Muted"}),
+    Command("Z1INP", "Input number", ZONE1),
     # --- Lyd ---
-    Command("Z1AIF", "Lydformat", AUDIO,
-            {"0": "Ingen lyd", "1": "Analog", "2": "PCM", "3": "Dolby",
+    Command("Z1AIF", "Audio format", AUDIO,
+            {"0": "No audio", "1": "Analog", "2": "PCM", "3": "Dolby",
              "4": "DSD", "5": "DTS", "6": "Atmos"}, numeric_lookup=True),
-    Command("Z1AIC", "Input-kanaler", AUDIO,
-            {"0": "Ingen lyd", "1": "Andet", "2": "Mono (center)", "3": "2 kanaler",
-             "4": "5.1 kanaler", "5": "6.1 kanaler", "6": "7.1 kanaler", "7": "Atmos"},
+    Command("Z1AIC", "Input channels", AUDIO,
+            {"0": "No audio", "1": "Other", "2": "Mono (center)", "3": "2 channels",
+             "4": "5.1 channels", "5": "6.1 channels", "6": "7.1 channels", "7": "Atmos"},
             numeric_lookup=True),
     Command("Z1ALM", "Listening mode", AUDIO,
-            {"0": "Ingen", "1": "AnthemLogic Cinema", "2": "AnthemLogic Music",
+            {"0": "None", "1": "AnthemLogic Cinema", "2": "AnthemLogic Music",
              "3": "Dolby Surround", "4": "DTS Neural:X", "5": "DTS Virtual:X",
              "6": "All Channel Stereo", "7": "Mono", "8": "All Channel Mono"},
             numeric_lookup=True),
-    Command("Z1AIN", "Lydformat (navn)", AUDIO),
-    Command("Z1AIR", "Samplerate (navn)", AUDIO),
+    Command("Z1AIN", "Audio format (name)", AUDIO),
+    Command("Z1AIR", "Sample rate (name)", AUDIO),
     Command("Z1BRT", "Bitrate", AUDIO, unit="kbps"),
-    Command("Z1SRT", "Samplerate", AUDIO, unit="kHz"),
-    Command("Z1DYN", "Dynamikområde (Dolby)", AUDIO,
-            {"0": "Normal", "1": "Reduceret", "2": "Late Night"}, numeric_lookup=True),
-    Command("Z1DIA", "Dialog-normalisering", AUDIO, unit="dB"),
+    Command("Z1SRT", "Sample rate", AUDIO, unit="kHz"),
+    Command("Z1DYN", "Dynamic range (Dolby)", AUDIO,
+            {"0": "Normal", "1": "Reduced", "2": "Late Night"}, numeric_lookup=True),
+    Command("Z1DIA", "Dialog normalization", AUDIO, unit="dB"),
     # --- Video ---
-    Command("Z1VIR", "Video-opløsning", VIDEO,
-            {"0": "Ingen video", "1": "Anden", "2": "1080p60", "3": "1080p50",
+    Command("Z1VIR", "Video resolution", VIDEO,
+            {"0": "No video", "1": "Other", "2": "1080p60", "3": "1080p50",
              "4": "1080p24", "5": "1080i60", "6": "1080i50", "7": "720p60",
              "8": "720p50", "9": "576p50", "10": "576i50", "11": "480p60",
              "12": "480i60", "13": "3D", "14": "4K", "15": "4K50", "16": "4K24"},
             numeric_lookup=True),
-    Command("Z1IRH", "Aktiv vandret opløsning", VIDEO, unit="px"),
-    Command("Z1IRV", "Aktiv lodret opløsning", VIDEO, unit="px"),
+    Command("Z1IRH", "Active horizontal resolution", VIDEO, unit="px"),
+    Command("Z1IRV", "Active vertical resolution", VIDEO, unit="px"),
     # --- Zone 2 ---
-    Command("Z2POW", "Power", ZONE2, {"0": "Standby", "1": "Tændt"}),
-    Command("Z2VOL", "Volumen", ZONE2, unit="dB"),
-    Command("Z2MUT", "Mute", ZONE2, {"0": "Fra", "1": "Muted"}),
-    Command("Z2INP", "Input-nummer", ZONE2),
+    Command("Z2POW", "Power", ZONE2, {"0": "Standby", "1": "On"}),
+    Command("Z2VOL", "Volume", ZONE2, unit="dB"),
+    Command("Z2MUT", "Mute", ZONE2, {"0": "Off", "1": "Muted"}),
+    Command("Z2INP", "Input number", ZONE2),
 ]
 
 CATALOG: dict[str, Command] = {c.code: c for c in _COMMANDS}
@@ -144,8 +144,8 @@ def lookup(code: str) -> Command | None:
     if m:
         n, kind = m.groups()
         if kind == "IN":
-            return Command(code, f"Input {n} — navn", INPUTS)
-        return Command(code, f"Input {n} — rumkorrektion", INPUTS, ON_OFF)
+            return Command(code, f"Input {n} — name", INPUTS)
+        return Command(code, f"Input {n} — room correction", INPUTS, ON_OFF)
     return None
 
 

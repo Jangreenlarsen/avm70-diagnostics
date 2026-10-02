@@ -106,7 +106,7 @@ class DeviceService:
             except asyncio.QueueFull:
                 # En hængende browserfane må ikke få hukommelsen til at vokse
                 # uendeligt; den får et frisk øjebliksbillede når den genforbinder.
-                logger.warning("SSE-abonnent kan ikke følge med — afkobler den")
+                logger.warning("SSE subscriber cannot keep up — disconnecting it")
                 self._subscribers.discard(q)
 
     def _add_log(self, kind: str, text: str, **extra) -> None:
@@ -220,8 +220,8 @@ class DeviceService:
         if same_target and self.running:
             if self.connected:
                 model = self.values["IDM"].text if self.values["IDM"].status == "ok" else None
-                return {"ok": True, "message": f"Allerede forbundet til {settings.host}:{settings.port}", "model": model}
-            return {"ok": False, "message": "Appen forsøger allerede at forbinde til denne adresse — afbryd først for at teste"}
+                return {"ok": True, "message": f"Already connected to {settings.host}:{settings.port}", "model": model}
+            return {"ok": False, "message": "The app is already trying to connect to this address — disconnect first to test"}
         client = AvmClient(
             settings.host, settings.port,
             on_message=lambda _m, _o: None, on_traffic=self._on_traffic,
@@ -235,13 +235,13 @@ class DeviceService:
             model = await client.query("IDM", "test", timeout=settings.query_timeout)
             software = await client.query("IDS", "test", timeout=settings.query_timeout)
         except AvmConnectionError as exc:
-            return {"ok": False, "message": f"Forbindelsen blev åbnet men tabt igen: {exc}"}
+            return {"ok": False, "message": f"Connection opened but lost again: {exc}"}
         finally:
             await client.close()
         if model.status != "ok":
-            return {"ok": False, "message": f"Forbundet til {settings.host}:{settings.port}, men enheden svarede ikke på model-forespørgsel "
-                                            f"({ERROR_TEXT.get(model.status, model.status)}) — er det en Anthem-enhed?"}
-        msg = f"Forbundet — {model.value}"
+            return {"ok": False, "message": f"Connected to {settings.host}:{settings.port}, but the device did not answer the model query "
+                                            f"({ERROR_TEXT.get(model.status, model.status)}) — is it an Anthem device?"}
+        msg = f"Connected — {model.value}"
         if software.status == "ok":
             msg += f", software {software.value}"
         return {"ok": True, "message": msg, "model": model.value}
@@ -277,7 +277,7 @@ class DeviceService:
 
     async def _run(self) -> None:
         delay = BACKOFF_START
-        self._add_log("connection", f"Forbinder til {self.settings.host}:{self.settings.port}")
+        self._add_log("connection", f"Connecting to {self.settings.host}:{self.settings.port}")
         while not self._stop.is_set():
             self._set_connection("connecting")
             client = AvmClient(
@@ -300,7 +300,7 @@ class DeviceService:
             self._client = client
             delay = BACKOFF_START
             self._set_connection("connected")
-            self._add_log("connection", f"Forbundet til {self.settings.host}:{self.settings.port}")
+            self._add_log("connection", f"Connected to {self.settings.host}:{self.settings.port}")
             try:
                 await self._refresh_all("refresh")
                 while not self._stop.is_set() and client.connected:
@@ -317,7 +317,7 @@ class DeviceService:
                 await client.close()
 
             if not self._stop.is_set():
-                reason = client.disconnect_reason or "Forbindelsen blev lukket"
+                reason = client.disconnect_reason or "Connection closed"
                 self._add_log("error", reason)
                 if not self.settings.auto_reconnect:
                     self._set_connection("disconnected", error=reason)
@@ -328,7 +328,7 @@ class DeviceService:
 
         if self.connection["status"] != "disconnected":
             self._set_connection("disconnected")
-        self._add_log("connection", "Afbrudt")
+        self._add_log("connection", "Disconnected")
 
     # ------------------------------------------------------------ forespørgsler
 
@@ -341,7 +341,7 @@ class DeviceService:
     async def _query_many(self, codes: list[str], origin: str) -> list[QueryResult]:
         client = self._client
         if client is None:
-            raise AvmConnectionError("Ikke forbundet til AVM70")
+            raise AvmConnectionError("Not connected to AVM70")
         results = []
         for code in codes:
             result = await client.query(code, origin, timeout=self.settings.query_timeout)
@@ -364,12 +364,12 @@ class DeviceService:
         await self._query_many(self._group_codes(*catalog.STATIC_GROUPS), origin)
         await self._refresh_inputs(origin)
         await self._query_many(self._runtime_codes(), origin)
-        self._add_log("info", "Fuld aflæsning af system- og runtime-værdier fuldført")
+        self._add_log("info", "Full read of system and runtime values completed")
 
     async def refresh(self, group: str | None = None) -> None:
         """Genforespørg alt, eller kun én gruppe (fx "version" fra versionsmenuen)."""
         if not self.connected:
-            raise NotConnectedError("Ikke forbundet til AVM70")
+            raise NotConnectedError("Not connected to AVM70")
         if group is None:
             await self._refresh_all("refresh")
         elif group == catalog.INPUTS:
@@ -381,7 +381,7 @@ class DeviceService:
     async def raw_query(self, code: str) -> dict:
         client = self._client
         if client is None or not client.connected:
-            raise NotConnectedError("Ikke forbundet til AVM70")
+            raise NotConnectedError("Not connected to AVM70")
         result = await client.query(code, "console", timeout=self.settings.query_timeout)
         self._apply_result(result, "console")
         return {**asdict(result), "status_text": ERROR_TEXT.get(result.status), "decoded":
@@ -389,11 +389,11 @@ class DeviceService:
 
     async def probe(self) -> list[dict]:
         if not self.connected:
-            raise NotConnectedError("Ikke forbundet til AVM70")
+            raise NotConnectedError("Not connected to AVM70")
         if self._probe_running:
-            raise BusyError("En probe kører allerede")
+            raise BusyError("A probe is already running")
         self._probe_running = True
-        self._add_log("info", "Probe startet")
+        self._add_log("info", "Probe started")
         try:
             codes = list(catalog.CATALOG) + [c for c, v in self.values.items() if v.group == catalog.INPUTS]
             results = await self._query_many(codes, "probe")
@@ -412,5 +412,5 @@ class DeviceService:
                 "decoded": catalog.decode(r.code, r.value) if r.value is not None else None,
             })
         ok = sum(1 for r in results if r.status == "ok")
-        self._add_log("info", f"Probe færdig: {ok} af {len(results)} kommandoer svarede")
+        self._add_log("info", f"Probe finished: {ok} of {len(results)} commands answered")
         return report

@@ -131,7 +131,7 @@ class FakeAvm:
 async def _main(port: int, cycle: float) -> None:
     fake = FakeAvm()
     actual = await fake.start("127.0.0.1", port)
-    logger.info("Fake AVM70 lytter på 127.0.0.1:%s (Ctrl+C for at stoppe)", actual)
+    logger.info("Fake AVM70 listening on 127.0.0.1:%s (Ctrl+C to stop)", actual)
     i = 0
     while True:
         await asyncio.sleep(cycle if cycle > 0 else 3600)
@@ -139,7 +139,7 @@ async def _main(port: int, cycle: float) -> None:
             i = (i + 1) % len(AUDIO_CYCLE)
             for code, value in AUDIO_CYCLE[i].items():
                 await fake.push(code, value)
-            logger.info("Pushede lydformat: %s", AUDIO_CYCLE[i]["Z1AIN"])
+            logger.info("Pushed audio format: %s", AUDIO_CYCLE[i]["Z1AIN"])
 
 
 if __name__ == "__main__":

@@ -4,6 +4,18 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.4.0 build 0004] — 2026-10-02 — Engelsk brugerflade
+
+FEATURES.md #11. Al tekst brugeren ser er nu på engelsk. Dokumentation og kodekommentarer er fortsat på dansk.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: gruppetitler, labels og værdi-tabeller (fx `On`/`Off`, `No audio`, `7.1 channels`)
+- `backend/app/protocol/parser.py`: fejltekster (`Invalid command`, `Zone is off`, …)
+- `backend/app/protocol/client.py`, `backend/app/config.py`, `backend/app/services/device_service.py`, `backend/app/api/routes.py`, `backend/app/main.py`, `backend/app/tools/fake_avm.py`: forbindelses- og valideringsfejl, logtekster, test-forbindelse og probe-beskeder
+- `frontend/index.html`, `frontend/app.js`: alle tekster, `lang="en"` og tidsformat `en-GB` (24 timer)
+- `backend/tests/`: forventede beskeder opdateret, plus en ny test af connect-timeout på 2 s (under minimum)
+- `CLAUDE.md`: ny fast regel om engelsk app-sprog
+
 ## [0.3.0 build 0003] — 2026-10-02 — Versionsmenu med alle versionsoplysninger fra AVM70
 
 FEATURES.md #10. Kodelisten kommer fra AVM70's egen web-UI (`http://10.1.1.7/js/merged.min.js`, `COMMAND`-tabellen) og er verificeret mod den rigtige enhed.

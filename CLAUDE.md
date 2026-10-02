@@ -14,6 +14,7 @@ Appen kører lokalt på Jans Windows-PC: én Python-proces der både taler med A
 - AVM70 accepterer kun **én** netværksklient ad gangen. Kører anden software mod den (fx Movie databases diagnostik eller Anthem-appen), afvises/afbrydes vi.
 - Protokollen er ren ASCII over TCP: kommandoer og svar afsluttes med `;`. Forespørgsler er `KODE?;`, og svar er `KODEværdi;`. Fejlsvar er `!I` (ugyldig), `!R` (uden for område), `!E` (kan ikke udføres) og `!Z` (zone slukket).
 - Appen er indtil videre **kun læsende**: backend afviser alt andet end forespørgsler (`?`).
+- **App-sprog er engelsk (UFRAVIGELIG, FEATURES.md #11)**: al tekst brugeren ser er på engelsk. Det gælder UI, fejlbeskeder fra backend, katalog-labels, værdi-afkodning, hændelseslog og eksport. Projektdokumentation (CLAUDE.md, CHANGELOG, RELEASE_NOTES osv.) og kodekommentarer skrives fortsat på dansk.
 
 **Reference-stack**:
 - **Backend**: Python 3.12+ / FastAPI / uvicorn, egen asyncio-protokolklient (ikke `anthemav`)

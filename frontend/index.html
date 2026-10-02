@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="da">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,15 +14,15 @@
       <span class="version" id="app-version"></span>
     </div>
     <div class="conn">
-      <span class="pill" id="conn-pill" data-status="disconnected">Afbrudt</span>
+      <span class="pill" id="conn-pill" data-status="disconnected">Disconnected</span>
       <span class="target" id="conn-target"></span>
     </div>
     <div class="actions">
-      <button id="btn-connect" class="primary">Forbind</button>
-      <button id="btn-disconnect">Afbryd</button>
-      <button id="btn-refresh" title="Genforespørg alle system- og runtime-værdier">Opdatér alt</button>
-      <button id="btn-versions" title="Alle versions- og identitetsoplysninger fra AVM70">ℹ Versioner</button>
-      <button id="btn-setup" title="Kommunikationsparametre for AVM70">⚙ Opsætning</button>
+      <button id="btn-connect" class="primary">Connect</button>
+      <button id="btn-disconnect">Disconnect</button>
+      <button id="btn-refresh" title="Re-query all system and runtime values">Refresh all</button>
+      <button id="btn-versions" title="All version and identity information from the AVM70">ℹ Versions</button>
+      <button id="btn-setup" title="Communication parameters for the AVM70">⚙ Setup</button>
     </div>
   </header>
 
@@ -33,19 +33,19 @@
 
     <section class="panel">
       <nav class="tabs" role="tablist">
-        <button role="tab" data-tab="log" aria-selected="true">Hændelseslog</button>
-        <button role="tab" data-tab="traffic" aria-selected="false">Rå trafik</button>
-        <button role="tab" data-tab="console" aria-selected="false">Konsol &amp; probe</button>
+        <button role="tab" data-tab="log" aria-selected="true">Event log</button>
+        <button role="tab" data-tab="traffic" aria-selected="false">Raw traffic</button>
+        <button role="tab" data-tab="console" aria-selected="false">Console &amp; probe</button>
       </nav>
 
       <div class="tab" id="tab-log">
         <div class="toolbar">
-          <label><input type="checkbox" id="log-changes-only"> Kun værdi-ændringer</label>
-          <button id="log-clear" class="small">Ryd visning</button>
+          <label><input type="checkbox" id="log-changes-only"> Value changes only</label>
+          <button id="log-clear" class="small">Clear view</button>
         </div>
         <div class="scroll">
           <table class="grid">
-            <thead><tr><th>Tid</th><th>Type</th><th>Kilde</th><th>Hændelse</th></tr></thead>
+            <thead><tr><th>Time</th><th>Type</th><th>Source</th><th>Event</th></tr></thead>
             <tbody id="log-body"></tbody>
           </table>
         </div>
@@ -53,27 +53,27 @@
 
       <div class="tab" id="tab-traffic" hidden>
         <div class="toolbar">
-          <label><input type="checkbox" id="traffic-hide-poll" checked> Skjul polling</label>
+          <label><input type="checkbox" id="traffic-hide-poll" checked> Hide polling</label>
           <label><input type="checkbox" id="traffic-pause"> Pause</label>
-          <button id="traffic-clear" class="small">Ryd visning</button>
+          <button id="traffic-clear" class="small">Clear view</button>
         </div>
         <pre class="traffic" id="traffic-body"></pre>
       </div>
 
       <div class="tab" id="tab-console" hidden>
         <form class="console-form" id="console-form">
-          <input id="console-input" placeholder="Forespørgsel, fx Z1VOL?  IS4IN?  GCTXS?" autocomplete="off" spellcheck="false">
+          <input id="console-input" placeholder="Query, e.g. Z1VOL?  IS4IN?  GCTXS?" autocomplete="off" spellcheck="false">
           <button type="submit" class="primary">Send</button>
         </form>
-        <p class="hint">Kun forespørgsler (<code>KODE?</code>) — appen ændrer intet på AVM70.</p>
+        <p class="hint">Queries only (<code>CODE?</code>) — the app never changes anything on the AVM70.</p>
         <div id="console-out" class="console-out"></div>
 
         <div class="toolbar probe-bar">
-          <button id="btn-probe">Kør probe</button>
-          <span class="hint">Spørger alle kendte kommandoer og viser hvilke AVM70 understøtter.</span>
+          <button id="btn-probe">Run probe</button>
+          <span class="hint">Queries all known commands and shows which ones the AVM70 supports.</span>
         </div>
         <table class="grid" id="probe-table" hidden>
-          <thead><tr><th>Kode</th><th>Betydning</th><th>Status</th><th>Rå værdi</th><th>Afkodet</th></tr></thead>
+          <thead><tr><th>Code</th><th>Meaning</th><th>Status</th><th>Raw value</th><th>Decoded</th></tr></thead>
           <tbody id="probe-body"></tbody>
         </table>
       </div>
@@ -82,11 +82,11 @@
 
   <dialog id="setup">
     <form id="setup-form" method="dialog">
-      <h2>Opsætning — AVM70-kommunikation</h2>
-      <p class="hint">Gemmes lokalt i <code>backend/data/settings.json</code>. Ændres host eller port, genforbinder appen.</p>
+      <h2>Setup — AVM70 communication</h2>
+      <p class="hint">Saved locally in <code>backend/data/settings.json</code>. Changing host or port makes the app reconnect.</p>
 
       <fieldset>
-        <legend>Forbindelse</legend>
+        <legend>Connection</legend>
         <label>Host / IP
           <input name="host" required spellcheck="false" placeholder="10.1.1.7">
         </label>
@@ -97,47 +97,47 @@
 
       <fieldset>
         <legend>Timing</legend>
-        <label>Poll-interval (s)
+        <label>Poll interval (s)
           <input name="poll_interval" type="number" min="0" max="60" step="0.5" required>
-          <small>0 = kun uopfordrede push-beskeder fra enheden</small>
+          <small>0 = only unsolicited push messages from the device</small>
         </label>
-        <label>Connect-timeout (s)
+        <label>Connect timeout (s)
           <input name="connect_timeout" type="number" min="3" max="60" step="0.5" required>
         </label>
-        <label>Svar-timeout (s)
+        <label>Response timeout (s)
           <input name="query_timeout" type="number" min="0.2" max="10" step="0.1" required>
-          <small>Hvor længe der ventes på svar på hver forespørgsel</small>
+          <small>How long to wait for the answer to each query</small>
         </label>
       </fieldset>
 
       <fieldset>
-        <legend>Adfærd</legend>
-        <label class="check"><input name="auto_reconnect" type="checkbox"> Genforbind automatisk ved tabt forbindelse</label>
-        <label class="check"><input name="auto_connect" type="checkbox"> Forbind automatisk når appen starter</label>
+        <legend>Behaviour</legend>
+        <label class="check"><input name="auto_reconnect" type="checkbox"> Reconnect automatically when the connection is lost</label>
+        <label class="check"><input name="auto_connect" type="checkbox"> Connect automatically when the app starts</label>
       </fieldset>
 
       <div class="setup-result" id="setup-result" hidden></div>
 
       <div class="dialog-actions">
-        <button type="button" id="setup-reset" class="ghost" title="Tilbage til værdierne fra .env">Standardværdier</button>
+        <button type="button" id="setup-reset" class="ghost" title="Back to the values from .env">Defaults</button>
         <span class="spacer"></span>
-        <button type="button" id="setup-test">Test forbindelse</button>
-        <button type="button" id="setup-cancel">Annullér</button>
-        <button type="submit" id="setup-save" class="primary">Gem</button>
+        <button type="button" id="setup-test">Test connection</button>
+        <button type="button" id="setup-cancel">Cancel</button>
+        <button type="submit" id="setup-save" class="primary">Save</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="versions">
     <div class="dialog-body">
-      <h2>Versioner — AVM70</h2>
-      <p class="hint" id="versions-hint">Hentes ved forbindelse. "Opdatér" spørger enheden igen.</p>
+      <h2>Versions — AVM70</h2>
+      <p class="hint" id="versions-hint">Read on connect. "Refresh" queries the device again.</p>
       <dl class="rows version-rows" id="versions-body"></dl>
       <div class="dialog-actions">
-        <button type="button" id="versions-copy" class="ghost">Kopiér alt</button>
+        <button type="button" id="versions-copy" class="ghost">Copy all</button>
         <span class="spacer"></span>
-        <button type="button" id="versions-refresh">Opdatér</button>
-        <button type="button" id="versions-close" class="primary">Luk</button>
+        <button type="button" id="versions-refresh">Refresh</button>
+        <button type="button" id="versions-close" class="primary">Close</button>
       </div>
     </div>
   </dialog>
