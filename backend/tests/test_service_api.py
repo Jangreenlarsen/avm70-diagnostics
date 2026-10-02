@@ -185,3 +185,27 @@ async def test_api_connect_query_probe_and_settings(api, fake, tmp_path):
 
     await api.post("/api/disconnect")
     assert dev.connection["status"] == "disconnected"
+
+
+# ------------------------------------------------------------------ versioner (FEATURES #10)
+
+async def test_versions_read_on_connect_and_group_refresh_only_queries_that_group(api, fake):
+    await api.post("/api/connect")
+    dev = api.app.state.device
+    await wait_until(lambda: any("Fuld aflæsning" in e["text"] for e in dev.log))
+    assert dev.values["GSN"].raw == "ALP2000256N070"
+    assert dev.values["NMSVER"].text == "2.3.213"
+    assert dev.values["RBD"].status == "ok" and dev.values["RBD"].raw == ""
+
+    fake.received.clear()
+    r = await api.post("/api/refresh", params={"group": "version"})
+    assert r.status_code == 200
+    queried = {cmd[:-1] for cmd in fake.received}
+    version_codes = {c for c, v in dev.values.items() if v.group == "version"}
+    assert queried == version_codes
+
+
+async def test_refresh_rejects_unknown_group(api):
+    r = await api.post("/api/refresh", params={"group": "nope"})
+    assert r.status_code == 400
+    assert "Ukendt gruppe" in r.json()["detail"]

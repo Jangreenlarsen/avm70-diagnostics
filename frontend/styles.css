@@ -167,7 +167,9 @@ dialog {
   border: 1px solid var(--border); border-radius: 10px;
 }
 dialog::backdrop { background: rgb(0 0 0 / 0.45); }
-dialog form { padding: 16px 18px; display: grid; gap: 12px; }
+dialog form, dialog .dialog-body { padding: 16px 18px; display: grid; gap: 12px; }
+.version-rows { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; max-height: min(60vh, 560px); overflow-y: auto; }
+.version-rows .section { padding: 6px 12px; font-size: 12px; font-weight: 650; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--border); }
 dialog h2 { margin: 0; font-size: 16px; }
 dialog .hint { margin: -6px 0 0; }
 fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 0; padding: 8px 12px 12px; display: grid; gap: 10px; grid-template-columns: 1fr 1fr; align-items: start; }

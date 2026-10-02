@@ -335,8 +335,8 @@ class DeviceService:
     def _runtime_codes(self) -> list[str]:
         return [c.code for c in catalog.CATALOG.values() if c.group in catalog.RUNTIME_GROUPS]
 
-    def _system_codes(self) -> list[str]:
-        return [c.code for c in catalog.CATALOG.values() if c.group == catalog.SYSTEM]
+    def _group_codes(self, *groups: str) -> list[str]:
+        return [c.code for c in catalog.CATALOG.values() if c.group in groups]
 
     async def _query_many(self, codes: list[str], origin: str) -> list[QueryResult]:
         client = self._client
@@ -361,15 +361,22 @@ class DeviceService:
         await self._query_many(catalog.input_commands(count), origin)
 
     async def _refresh_all(self, origin: str) -> None:
-        await self._query_many(self._system_codes(), origin)
+        await self._query_many(self._group_codes(*catalog.STATIC_GROUPS), origin)
         await self._refresh_inputs(origin)
         await self._query_many(self._runtime_codes(), origin)
         self._add_log("info", "Fuld aflæsning af system- og runtime-værdier fuldført")
 
-    async def refresh(self) -> None:
+    async def refresh(self, group: str | None = None) -> None:
+        """Genforespørg alt, eller kun én gruppe (fx "version" fra versionsmenuen)."""
         if not self.connected:
             raise NotConnectedError("Ikke forbundet til AVM70")
-        await self._refresh_all("refresh")
+        if group is None:
+            await self._refresh_all("refresh")
+        elif group == catalog.INPUTS:
+            await self._query_many(["ICN"], "refresh")
+            await self._refresh_inputs("refresh")
+        else:
+            await self._query_many(self._group_codes(group), "refresh")
 
     async def raw_query(self, code: str) -> dict:
         client = self._client

@@ -2,6 +2,16 @@
 
 ---
 
+## v0.3.0 — 2026-10-02 — Versionsmenu
+
+**Nyt:**
+- **ℹ Versioner** i topbjælken viser alle versionsoplysninger fra AVM70:
+  - Enhed: samlet identifikation, serienummer, MCU-, DSP- og LCD-controller-version, build-dato, hardware-version og region.
+  - Netværksmodul: software, hardware, release-version og netværksforbindelse.
+  - Desuden appens egen version.
+- **Kopiér alt** lægger det hele på udklipsholderen som tekst, også fra mobilen. **Opdatér** spørger kun enheden om versionerne igen.
+- Systemkortet viser nu også enhedsnavn ("AVM70 BIO") og netværksforbindelse (Wi-Fi/kabel).
+
 ## v0.2.0 — 2026-10-02 — Første version af AVM70 Diagnostics
 
 Start med `.\run.ps1`. Appen åbner på http://127.0.0.1:8070 og forbinder automatisk til AVM70.

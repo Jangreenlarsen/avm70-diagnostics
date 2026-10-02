@@ -22,6 +22,8 @@ const STATUS_TEXT = {
 };
 const SOURCE_TEXT = { push: "push", poll: "poll", refresh: "opdatering", console: "konsol", probe: "probe", test: "test" };
 const GROUP_ORDER = ["system", "inputs", "zone1", "audio", "video", "zone2"];
+// Grupper der ikke vises som kort på forsiden (har deres egen menu).
+const MENU_GROUPS = new Set(["version"]);
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -117,6 +119,7 @@ function renderCards() {
   host.replaceChildren();
   const byGroup = new Map(GROUP_ORDER.map((g) => [g, []]));
   for (const v of state.values.values()) {
+    if (MENU_GROUPS.has(v.group)) continue;
     if (!byGroup.has(v.group)) byGroup.set(v.group, []);
     byGroup.get(v.group).push(v);
   }
@@ -169,6 +172,10 @@ function fillRow(row, v) {
 function updateValue(v) {
   const prev = state.values.get(v.code);
   state.values.set(v.code, v);
+  if (MENU_GROUPS.has(v.group)) {
+    if ($("#versions").open) renderVersions();
+    return;
+  }
   const row = document.getElementById(`row-${v.code}`);
   if (!row) { renderCards(); return; }
   fillRow(row, v);
@@ -253,6 +260,7 @@ function applySnapshot(s) {
   renderCards();
   renderLog();
   renderTraffic();
+  if ($("#versions").open) renderVersions();
 }
 
 function connectEvents() {
@@ -429,11 +437,105 @@ form.onsubmit = async (e) => {
   }
 };
 
+// ---------------------------------------------------------------- versionsmenu
+
+let appVersion = null;
+
+/** Rækkerne i versionsmenuen: appen selv, enhedens identitet og alle
+ *  koder i "version"-gruppen (i katalogets rækkefølge). */
+function versionSections() {
+  const pick = (codes) => codes.map((c) => state.values.get(c)).filter(Boolean);
+  const versionValues = [...state.values.values()].filter((v) => v.group === "version");
+  const network = versionValues.filter((v) => /^(NMSVER|NMHVER|RVER|RBD|NMR)$/.test(v.code));
+  const device = versionValues.filter((v) => !network.includes(v));
+  return [
+    ["Enhed", [...pick(["IDM", "GCDN"]), ...device]],
+    ["Netværksmodul", [...network, ...pick(["NMST"])]],
+  ];
+}
+
+function versionText(v) {
+  if (v.raw === null || v.raw === undefined) return v.status === "unknown" ? "—" : (v.status_text || v.status);
+  if (v.raw.trim() === "") return "(ikke angivet)";
+  return v.text;
+}
+
+function renderVersions() {
+  const body = $("#versions-body");
+  const children = [el("div", { class: "section" }, "Denne app")];
+  children.push(el("div", { class: "row" },
+    el("dt", {}, "AVM70 Diagnostics"),
+    el("dd", {}, el("span", { class: "val" }, appVersion ? `v${appVersion.version} build ${appVersion.build}` : "—")),
+  ));
+  for (const [title, values] of versionSections()) {
+    children.push(el("div", { class: "section" }, title));
+    for (const v of values) {
+      const dd = el("dd", {}, el("span", { class: "val" }, versionText(v)));
+      if (v.status !== "ok" && v.status !== "unknown" && v.raw !== null) dd.append(" ", el("span", { class: "state" }, v.status_text || v.status));
+      dd.append(el("span", { class: "raw" }, v.code));
+      children.push(el("div", { class: "row" }, el("dt", {}, v.label), dd));
+    }
+  }
+  body.replaceChildren(...children);
+  const c = state.connection;
+  $("#versions-refresh").disabled = !c || c.status !== "connected";
+  $("#versions-hint").textContent = c && c.status === "connected"
+    ? `Hentet fra ${c.host}:${c.port}. "Opdatér" spørger enheden igen.`
+    : "Ikke forbundet — viser de senest hentede værdier.";
+}
+
+function versionsAsText() {
+  const lines = [`AVM70 Diagnostics: v${appVersion?.version ?? "?"} build ${appVersion?.build ?? "?"}`];
+  for (const [title, values] of versionSections()) {
+    lines.push("", `[${title}]`);
+    for (const v of values) lines.push(`${v.label} (${v.code}): ${versionText(v)}`);
+  }
+  return lines.join("\n");
+}
+
+/** Clipboard-API'et findes kun i en "secure context" (https/localhost) —
+ *  åbnes appen fra mobilen via http://<pc-ip>:8070, må vi falde tilbage
+ *  til det gamle execCommand("copy") via et midlertidigt tekstfelt. */
+async function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const ta = el("textarea", { readonly: "", style: "position:fixed;top:0;left:0;opacity:0" });
+  ta.value = text;
+  $("#versions").append(ta);
+  ta.select();
+  ta.setSelectionRange(0, text.length);
+  const ok = document.execCommand("copy");
+  ta.remove();
+  if (!ok) throw new Error("Browseren tillod ikke kopiering — markér teksten manuelt");
+}
+
+$("#btn-versions").onclick = () => {
+  renderVersions();
+  $("#versions").showModal();
+};
+$("#versions-close").onclick = () => $("#versions").close();
+$("#versions-refresh").onclick = (e) => action(e.currentTarget, async () => {
+  await api("POST", "/api/refresh?group=version");
+  renderVersions();
+  toast("Versioner genforespurgt");
+});
+$("#versions-copy").onclick = async () => {
+  try {
+    await copyText(versionsAsText());
+    toast("Versionsoplysninger kopieret");
+  } catch (err) {
+    toast(err.message, true);
+  }
+};
+
 // ---------------------------------------------------------------- start
 
 (async () => {
   try {
     const info = await api("GET", "/api/info");
+    appVersion = info.app;
     $("#app-version").textContent = `v${info.app.version} build ${info.app.build}`;
   } catch (err) {
     toast(err.message, true);

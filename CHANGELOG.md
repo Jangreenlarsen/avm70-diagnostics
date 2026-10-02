@@ -4,6 +4,19 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.3.0 build 0003] — 2026-10-02 — Versionsmenu med alle versionsoplysninger fra AVM70
+
+FEATURES.md #10. Kodelisten kommer fra AVM70's egen web-UI (`http://10.1.1.7/js/merged.min.js`, `COMMAND`-tabellen) og er verificeret mod den rigtige enhed.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: ny gruppe `version` (IDQ, GSN, IDS, DSPIDS, LCDIDS, IDB, IDH, IDR, NMSVER, NMHVER, RVER, RBD, NMR). IDS/IDB/IDH/IDR er flyttet hertil fra System. System har fået GCDN (enhedsnavn) og NMST (netværksforbindelse). Ny `STATIC_GROUPS`
+- `backend/app/services/device_service.py`: `refresh(group)`, så én gruppe kan genforespørges for sig
+- `backend/app/api/routes.py`: `POST /api/refresh?group=…` med validering af gruppenavn
+- `backend/app/tools/fake_avm.py`: svarer på de nye koder med værdier fra den rigtige enhed
+- `backend/tests/`: 11 nye tests (parsing af versionskoder, inkl. NMST vs. NMSVER og tomt RBD-svar; gruppe-opdatering spørger kun versionskoderne; ukendt gruppe → 400)
+- `frontend/index.html`, `app.js`, `styles.css`: "ℹ Versioner"-knap og -dialog med sektionerne app, enhed og netværksmodul, "Opdatér" og "Kopiér alt". Kopiering falder tilbage til `execCommand`, når siden ikke kører i en secure context (fx fra mobilen via `http://10.1.1.50:8070`). Versionsgruppen vises ikke som kort på forsiden
+- `AVM70_REFERENCE.md`: versionskoder, web-UI'ets JSON-API og en advarsel om handlings-koder
+
 ## [0.2.0 build 0002] — 2026-10-02 — Diagnostik-app: systeminfo, runtime-data live og opsætningsmenu
 
 Første funktionelle version (FEATURES.md #1–#9). Testet mod den rigtige AVM70 på `10.1.1.7:14999`, hvor alle 37 katalog-kommandoer svarer.

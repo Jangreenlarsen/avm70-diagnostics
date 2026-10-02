@@ -174,3 +174,27 @@ async def test_lost_connection_fails_pending_query_and_sets_reason(fake):
         await task
     assert c.disconnect_reason is not None
     assert not c.connected
+
+
+# ------------------------------------------------------------------ versioner (FEATURES #10)
+
+@pytest.mark.parametrize("raw,code,value", [
+    ("IDQAVM 70 EU 00.80 Sep 1 2023 09H18M47", "IDQ", "AVM 70 EU 00.80 Sep 1 2023 09H18M47"),
+    ("GSNALP2000256N070", "GSN", "ALP2000256N070"),
+    ("DSPIDS00.00/00.00", "DSPIDS", "00.00/00.00"),
+    ("LCDIDS00.32/00.02", "LCDIDS", "00.32/00.02"),
+    ("NMSVER2.3.213", "NMSVER", "2.3.213"),
+    ("NMSTWi-Fi", "NMST", "Wi-Fi"),          # NMST må ikke forveksles med NMSVER
+    ("RBD", "RBD", ""),                      # rigtig AVM70: tomt svar
+    ("RVERnot approved", "RVER", "not approved"),
+])
+def test_parse_version_codes_seen_on_real_avm70(raw, code, value):
+    msg = parse_message(raw)
+    assert (msg.kind, msg.code, msg.value) == ("value", code, value)
+
+
+def test_version_group_is_static_not_polled():
+    version_codes = {c for c, cmd in catalog.CATALOG.items() if cmd.group == catalog.VERSION}
+    assert {"IDQ", "GSN", "IDS", "DSPIDS", "LCDIDS", "NMSVER", "NMHVER", "RVER"} <= version_codes
+    assert catalog.VERSION in catalog.STATIC_GROUPS
+    assert catalog.VERSION not in catalog.RUNTIME_GROUPS

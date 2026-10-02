@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass, field
 
 SYSTEM = "system"
+VERSION = "version"
 ZONE1 = "zone1"
 AUDIO = "audio"
 VIDEO = "video"
@@ -21,6 +22,7 @@ INPUTS = "inputs"
 
 GROUP_TITLES = {
     SYSTEM: "System",
+    VERSION: "Versioner",
     ZONE1: "Zone 1",
     AUDIO: "Lyd (zone 1)",
     VIDEO: "Video (zone 1)",
@@ -31,6 +33,8 @@ GROUP_TITLES = {
 # Grupper der genforespørges ved hver polling-runde. Systeminfo ændrer sig
 # ikke under drift og hentes kun ved forbindelse og manuel opdatering.
 RUNTIME_GROUPS = (ZONE1, AUDIO, VIDEO, ZONE2)
+# Hentes ved forbindelse og manuel opdatering (ikke polling).
+STATIC_GROUPS = (SYSTEM, VERSION)
 
 ON_OFF = {"0": "Fra", "1": "Til"}
 
@@ -51,16 +55,30 @@ class Command:
 _COMMANDS = [
     # --- System ---
     Command("IDM", "Model", SYSTEM),
-    Command("IDS", "Software-version", SYSTEM),
-    Command("IDB", "Software build-dato", SYSTEM),
-    Command("IDH", "Hardware-version", SYSTEM),
-    Command("IDR", "Region", SYSTEM),
+    Command("GCDN", "Enhedsnavn", SYSTEM),
+    Command("NMST", "Netværksforbindelse", SYSTEM),
     Command("EMAC", "Ethernet MAC", SYSTEM, is_mac=True),
     Command("WMAC", "Wi-Fi MAC", SYSTEM, is_mac=True),
     Command("GCTXS", "IP/RS-232 status-udsendelse", SYSTEM,
             {"0": "Fra", "1": "IP til", "2": "IP og RS-232 til"}, numeric_lookup=True),
     Command("GCFPB", "Frontpanel-lysstyrke", SYSTEM),
     Command("ICN", "Antal aktive inputs", SYSTEM),
+    # --- Versioner ---
+    # Koder og betydning fra AVM70's egen web-UI (http://<avm>/js/merged.min.js,
+    # COMMAND-tabellen under "// info" og "// network module").
+    Command("IDQ", "Samlet identifikation", VERSION),
+    Command("GSN", "Serienummer", VERSION),
+    Command("IDS", "MCU-version (hovedfirmware)", VERSION),
+    Command("DSPIDS", "DSP-version", VERSION),
+    Command("LCDIDS", "LCD-controller-version", VERSION),
+    Command("IDB", "Software build-dato", VERSION),
+    Command("IDH", "Hardware-version", VERSION),
+    Command("IDR", "Region", VERSION),
+    Command("NMSVER", "Netværksmodul — software", VERSION),
+    Command("NMHVER", "Netværksmodul — hardware", VERSION),
+    Command("RVER", "Netværksmodul — release-version", VERSION),
+    Command("RBD", "Netværksmodul — release build-dato", VERSION),
+    Command("NMR", "Netværksmodul — region", VERSION),
     # --- Zone 1 ---
     Command("Z1POW", "Power", ZONE1, {"0": "Standby", "1": "Tændt"}),
     Command("Z1VOL", "Volumen", ZONE1, unit="dB"),

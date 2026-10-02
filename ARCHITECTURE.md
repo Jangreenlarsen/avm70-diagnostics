@@ -55,7 +55,7 @@
 | GET  | `/api/state` | Fuldt øjebliksbillede: forbindelse, alle kendte værdier, seneste hændelser og trafik |
 | POST | `/api/connect` | Start forbindelsen (med auto-reconnect) |
 | POST | `/api/disconnect` | Stop forbindelsen |
-| POST | `/api/refresh` | Genforespørg alle system- og runtime-kommandoer |
+| POST | `/api/refresh` | Genforespørg alle kommandoer. Med `?group=version` (eller en anden gruppe) kun den gruppe. Ukendt gruppe giver `400` |
 | GET  | `/api/settings` | Aktuelle kommunikationsparametre |
 | PUT  | `/api/settings` | Gem parametre fra opsætningsmenuen (host, port, poll-interval, connect-/svar-timeout, auto-reconnect, auto-connect). Valideres i backend og gemmes i `data/settings.json`. Ændret host/port giver genforbindelse |
 | POST | `/api/settings/test` | Test parametre uden at gemme: kortvarig forbindelse + `IDM?`/`IDS?`. Er adressen den aktive forbindelse, bruges den i stedet (kun én klient) |

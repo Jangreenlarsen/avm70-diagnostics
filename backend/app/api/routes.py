@@ -59,9 +59,11 @@ async def disconnect(request: Request) -> dict:
 
 
 @router.post("/refresh")
-async def refresh(request: Request) -> dict:
+async def refresh(request: Request, group: str | None = None) -> dict:
+    if group is not None and group not in catalog.GROUP_TITLES:
+        raise HTTPException(400, f"Ukendt gruppe: {group!r} — gyldige: {', '.join(catalog.GROUP_TITLES)}")
     try:
-        await service(request).refresh()
+        await service(request).refresh(group)
     except NotConnectedError as exc:
         raise HTTPException(409, str(exc)) from None
     return {"ok": True}
