@@ -5,13 +5,15 @@ import asyncio
 import json
 import re
 from dataclasses import asdict
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from app import config
 from app.protocol import catalog
+from app.services import report
 from app.services.device_service import BusyError, DeviceService, NotConnectedError
 
 router = APIRouter(prefix="/api")
@@ -137,6 +139,32 @@ async def probe(request: Request) -> list[dict]:
         raise HTTPException(409, str(exc)) from None
     except BusyError as exc:
         raise HTTPException(409, str(exc)) from None
+
+
+@router.get("/export")
+async def export(request: Request) -> Response:
+    """Diagnoserapport som tekstfil (FEATURES.md #12). Er der forbindelse,
+    genforespørges alt først, så rapporten er frisk. Uden forbindelse
+    eksporteres de senest kendte værdier, og rapporten siger det tydeligt
+    — en rapport er stadig nyttig netop når forbindelsen er problemet."""
+    dev = service(request)
+    refreshed, refresh_error = False, None
+    if dev.connected:
+        try:
+            await dev.refresh()
+            refreshed = True
+        except Exception as exc:  # noqa: BLE001 — eksporten skal lykkes med de kendte værdier; fejlen står i rapporten
+            refresh_error = str(exc) or type(exc).__name__
+    now = datetime.now(timezone.utc)
+    snapshot = dev.snapshot()
+    snapshot["traffic"] = list(dev.traffic)  # hele ringbufferen, ikke kun UI-udsnittet
+    text = report.build_report(snapshot, config.app_version(), now, refreshed, refresh_error, dev.last_probe)
+    filename = report.report_filename(snapshot, now)
+    return Response(
+        content=text.encode("utf-8"),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 def _sse(event: dict) -> str:

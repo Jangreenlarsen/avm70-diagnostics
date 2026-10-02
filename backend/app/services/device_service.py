@@ -57,6 +57,7 @@ class DeviceService:
         self._stop = asyncio.Event()
         self._wake = asyncio.Event()
         self._probe_running = False
+        self.last_probe: dict | None = None  # {"at": iso, "results": [...]} til rapporten
         self.values: dict[str, ValueState] = {}
         self.traffic: deque[dict] = deque(maxlen=RING_SIZE)
         self.log: deque[dict] = deque(maxlen=RING_SIZE)
@@ -256,6 +257,7 @@ class DeviceService:
         self.settings = settings
         if target_changed:
             self._init_values()
+            self.last_probe = None
             self._publish("reset", self.snapshot())
         self.connection.update(host=settings.host, port=settings.port)
         self._publish("connection", dict(self.connection))
@@ -411,6 +413,7 @@ class DeviceService:
                 "value": r.value,
                 "decoded": catalog.decode(r.code, r.value) if r.value is not None else None,
             })
+        self.last_probe = {"at": _now(), "results": report}
         ok = sum(1 for r in results if r.status == "ok")
         self._add_log("info", f"Probe finished: {ok} of {len(results)} commands answered")
         return report

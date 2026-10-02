@@ -284,7 +284,12 @@ async function action(btn, fn) {
   btn.disabled = true;
   try { await fn(); }
   catch (err) { toast(err.message, true); }
-  finally { renderConnection(); }
+  finally {
+    // Slå knappen til igen; renderConnection() slår derefter de
+    // forbindelsesafhængige knapper fra igen, hvis de skal være det.
+    btn.disabled = false;
+    renderConnection();
+  }
 }
 
 $("#btn-connect").onclick = (e) => action(e.currentTarget, () => api("POST", "/api/connect"));
@@ -528,6 +533,43 @@ $("#versions-copy").onclick = async () => {
   } catch (err) {
     toast(err.message, true);
   }
+};
+
+// ---------------------------------------------------------------- rapport (FEATURES #12)
+
+/** Henter diagnoserapporten og gemmer den som fil. fetch + blob i stedet
+ *  for et almindeligt link, så en fejl fra backend kan vises som toast. */
+async function downloadReport() {
+  let res;
+  try {
+    res = await fetch("/api/export");
+  } catch (err) {
+    throw new Error(`Cannot reach the app backend (${err.message})`);
+  }
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const d = await res.json(); if (typeof d.detail === "string") msg = d.detail; } catch { /* ikke-JSON fejlsvar — HTTP-status er det bedste vi har */ }
+    throw new Error(msg);
+  }
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match ? match[1] : "AVM70_report.txt";
+  const url = URL.createObjectURL(await res.blob());
+  const a = el("a", { href: url, download: filename });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return filename;
+}
+
+$("#btn-report").onclick = (e) => {
+  const btn = e.currentTarget;
+  btn.textContent = "⬇ Preparing…";
+  action(btn, async () => {
+    const name = await downloadReport();
+    toast(`Report downloaded: ${name}`);
+  }).finally(() => { btn.textContent = "⬇ Report"; });
 };
 
 // ---------------------------------------------------------------- start

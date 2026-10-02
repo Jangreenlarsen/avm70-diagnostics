@@ -2,6 +2,12 @@
 
 ---
 
+## v0.5.0 — 2026-10-02 — Diagnoserapport til Anthem support
+
+- **⬇ Report** i topbjælken henter en tekstfil, fx `AVM70_ALP2000256N070_20261002-234531.txt`, som kan sendes direkte til Anthem.
+- Rapporten er på engelsk og indeholder: identifikation og serienummer, alle firmware-versioner, netværk, inputs, aktuel status for zoner, lyd og video, probe-resultat (hvis kørt), hændelseslog og rå protokol-trafik.
+- Har appen forbindelse, spørges enheden igen lige før eksport, så tallene er friske. Uden forbindelse eksporteres de senest kendte værdier, og rapporten skriver det tydeligt.
+
 ## v0.4.0 — 2026-10-02 — Engelsk brugerflade
 
 - Hele appen taler nu engelsk: menuer, knapper, labels, værdier, fejlbeskeder og hændelseslog.

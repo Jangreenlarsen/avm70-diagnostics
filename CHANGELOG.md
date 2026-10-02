@@ -4,6 +4,20 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.5.0 build 0005] — 2026-10-02 — Diagnoserapport som tekstfil til Anthem support
+
+FEATURES.md #12. "⬇ Report" henter en struktureret engelsk tekstfil med alt appen har hentet fra AVM70. Den er beregnet til at sende til fabrikanten.
+
+**Filer tilføjet:**
+- `backend/app/services/report.py`: `build_report()` og `report_filename()`. Rapporten har 9 faste sektioner (identifikation, firmware, netværk, system og inputs, aktuel status, probe, hændelseslog, rå trafik, indstillinger). Hver værdi vises afkodet med kode og rå værdi. Tomme værdier vises som "(not set)", og værdier der aldrig er læst som "(not read)". Teksten er UTF-8 med CRLF. Serienummeret i filnavnet renses for ugyldige tegn
+- `backend/tests/test_report.py`: 14 tests (sektionsrækkefølge, rå/afkodet/tom/fejlstatus, numerisk input-sortering, uden forbindelse, fejlet genforespørgsel, probe-tabel med zone, filnavn, endpoint med og uden forbindelse)
+
+**Filer ændret:**
+- `backend/app/api/routes.py`: `GET /api/export`
+- `backend/app/services/device_service.py`: gemmer seneste probe (`last_probe`), som nulstilles når host/port skiftes
+- `frontend/index.html`, `frontend/app.js`: "⬇ Report"-knap (fetch + blob, så backend-fejl vises som toast; virker også på mobil). `action()` slår nu altid knappen til igen. Før forblev knapper, der ikke styres af `renderConnection()`, deaktiverede (fanget under udviklingen, ikke udgivet)
+- `ARCHITECTURE.md`, `FEATURES.md`
+
 ## [0.4.0 build 0004] — 2026-10-02 — Engelsk brugerflade
 
 FEATURES.md #11. Al tekst brugeren ser er nu på engelsk. Dokumentation og kodekommentarer er fortsat på dansk.
