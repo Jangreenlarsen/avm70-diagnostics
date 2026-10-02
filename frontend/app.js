@@ -15,27 +15,27 @@ const el = (tag, attrs = {}, ...children) => {
 };
 
 const STATUS_TEXT = {
-  disconnected: "Afbrudt",
-  connecting: "Forbinder…",
-  reconnecting: "Genforbinder…",
-  connected: "Forbundet",
+  disconnected: "Disconnected",
+  connecting: "Connecting…",
+  reconnecting: "Reconnecting…",
+  connected: "Connected",
 };
-const SOURCE_TEXT = { push: "push", poll: "poll", refresh: "opdatering", console: "konsol", probe: "probe", test: "test" };
+const SOURCE_TEXT = { push: "push", poll: "poll", refresh: "refresh", console: "console", probe: "probe", test: "test" };
 const GROUP_ORDER = ["system", "inputs", "zone1", "audio", "video", "zone2"];
 // Grupper der ikke vises som kort på forsiden (har deres egen menu).
 const MENU_GROUPS = new Set(["version"]);
 
 function fmtTime(iso) {
   const d = new Date(iso);
-  return d.toLocaleTimeString("da-DK", { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0");
+  return d.toLocaleTimeString("en-GB", { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0");
 }
 
 function ago(iso) {
   if (!iso) return "";
   const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-  if (s < 60) return `${s} s siden`;
-  if (s < 3600) return `${Math.floor(s / 60)} min siden`;
-  return `${Math.floor(s / 3600)} t siden`;
+  if (s < 60) return `${s} s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  return `${Math.floor(s / 3600)} h ago`;
 }
 
 let toastTimer;
@@ -60,7 +60,7 @@ async function api(method, path, body) {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch (err) {
-    throw new Error(`Kan ikke nå appens backend (${err.message})`);
+    throw new Error(`Cannot reach the app backend (${err.message})`);
   }
   let data = null;
   try { data = await res.json(); } catch { /* tomt eller ikke-JSON svar — håndteres nedenfor */ }
@@ -104,7 +104,7 @@ function renderConnection() {
   const banner = $("#conn-error");
   if (c.last_error && c.status !== "connected") {
     let text = c.last_error;
-    if (c.status === "reconnecting" && c.next_retry_s) text += ` — nyt forsøg om ${c.next_retry_s} s`;
+    if (c.status === "reconnecting" && c.next_retry_s) text += ` — retrying in ${c.next_retry_s} s`;
     banner.textContent = text;
     banner.hidden = false;
   } else {
@@ -127,7 +127,7 @@ function renderCards() {
     const card = el("article", { class: "card", dataset: { group } }, el("h2", {}, state.groups[group] || group));
     if (group === "inputs") values.sort((a, b) => inputOrder(a.code) - inputOrder(b.code));
     if (values.length === 0) {
-      card.append(el("p", { class: "empty" }, group === "inputs" ? "Hentes når antal inputs er kendt" : "Ingen data"));
+      card.append(el("p", { class: "empty" }, group === "inputs" ? "Read once the input count is known" : "No data"));
     } else {
       const dl = el("dl", { class: "rows" });
       for (const v of values) dl.append(renderRow(v));
@@ -153,7 +153,7 @@ function fillRow(row, v) {
   if (v.raw === null || v.raw === undefined) {
     val.textContent = v.status === "unknown" ? "—" : "";
   } else {
-    val.textContent = v.text === "" ? "(tom)" : v.text;
+    val.textContent = v.text === "" ? "(empty)" : v.text;
   }
   const dd = el("dd", {}, val);
   if (v.status !== "ok" && v.status !== "unknown") {
@@ -164,8 +164,8 @@ function fillRow(row, v) {
   row.replaceChildren(el("dt", {}, v.label), dd);
   row.classList.toggle("stale", v.status !== "ok" && v.raw !== null);
   row.title = [
-    v.updated_at ? `Seneste svar: ${fmtTime(v.updated_at)} (${SOURCE_TEXT[v.source] || v.source || ""})` : "",
-    v.changed_at ? `Seneste ændring: ${fmtTime(v.changed_at)} — ${ago(v.changed_at)}` : "",
+    v.updated_at ? `Last response: ${fmtTime(v.updated_at)} (${SOURCE_TEXT[v.source] || v.source || ""})` : "",
+    v.changed_at ? `Last change: ${fmtTime(v.changed_at)} — ${ago(v.changed_at)}` : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -189,7 +189,7 @@ function updateValue(v) {
 
 // ---------------------------------------------------------------- render: log
 
-const KIND_TEXT = { change: "Ændring", connection: "Forbindelse", error: "Fejl", info: "Info" };
+const KIND_TEXT = { change: "Change", connection: "Connection", error: "Error", info: "Info" };
 
 function logRow(e) {
   return el("tr", { class: `kind-${e.kind}` },
@@ -274,7 +274,7 @@ function connectEvents() {
     // EventSource genforbinder selv; vis kun at backend er væk.
     const pill = $("#conn-pill");
     pill.dataset.status = "disconnected";
-    pill.textContent = "Ingen kontakt til app-backend";
+    pill.textContent = "No contact with app backend";
   };
 }
 
@@ -284,14 +284,19 @@ async function action(btn, fn) {
   btn.disabled = true;
   try { await fn(); }
   catch (err) { toast(err.message, true); }
-  finally { renderConnection(); }
+  finally {
+    // Slå knappen til igen; renderConnection() slår derefter de
+    // forbindelsesafhængige knapper fra igen, hvis de skal være det.
+    btn.disabled = false;
+    renderConnection();
+  }
 }
 
 $("#btn-connect").onclick = (e) => action(e.currentTarget, () => api("POST", "/api/connect"));
 $("#btn-disconnect").onclick = (e) => action(e.currentTarget, () => api("POST", "/api/disconnect"));
 $("#btn-refresh").onclick = (e) => action(e.currentTarget, async () => {
   await api("POST", "/api/refresh");
-  toast("Alle værdier genforespurgt");
+  toast("All values re-queried");
 });
 
 // tabs
@@ -335,7 +340,7 @@ $("#console-form").onsubmit = async (e) => {
 
 // probe
 $("#btn-probe").onclick = (e) => action(e.currentTarget, async () => {
-  e.currentTarget.textContent = "Probe kører…";
+  e.currentTarget.textContent = "Probe running…";
   try {
     const rows = await api("POST", "/api/probe");
     const body = $("#probe-body");
@@ -349,9 +354,9 @@ $("#btn-probe").onclick = (e) => action(e.currentTarget, async () => {
     )));
     $("#probe-table").hidden = false;
     const ok = rows.filter((r) => r.status === "ok").length;
-    toast(`Probe færdig: ${ok} af ${rows.length} kommandoer svarede`);
+    toast(`Probe finished: ${ok} of ${rows.length} commands answered`);
   } finally {
-    $("#btn-probe").textContent = "Kør probe";
+    $("#btn-probe").textContent = "Run probe";
   }
 });
 
@@ -404,7 +409,7 @@ $("#setup-cancel").onclick = () => dialog.close();
 $("#setup-test").onclick = async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true;
-  setupResult("Tester forbindelsen…", null);
+  setupResult("Testing the connection…", null);
   try {
     const r = await api("POST", "/api/settings/test", readForm());
     setupResult(r.message, r.ok);
@@ -416,10 +421,10 @@ $("#setup-test").onclick = async (e) => {
 };
 
 $("#setup-reset").onclick = async () => {
-  if (!confirm("Nulstil til standardværdierne fra .env?")) return;
+  if (!confirm("Reset to the default values from .env?")) return;
   try {
     fillForm(await api("POST", "/api/settings/reset"));
-    setupResult("Standardværdier gendannet og gemt", true);
+    setupResult("Defaults restored and saved", true);
   } catch (err) {
     setupResult(err.message, false);
   }
@@ -431,7 +436,7 @@ form.onsubmit = async (e) => {
   try {
     state.settings = await api("PUT", "/api/settings", readForm());
     dialog.close();
-    toast("Opsætning gemt");
+    toast("Setup saved");
   } catch (err) {
     setupResult(err.message, false);
   }
@@ -449,20 +454,20 @@ function versionSections() {
   const network = versionValues.filter((v) => /^(NMSVER|NMHVER|RVER|RBD|NMR)$/.test(v.code));
   const device = versionValues.filter((v) => !network.includes(v));
   return [
-    ["Enhed", [...pick(["IDM", "GCDN"]), ...device]],
-    ["Netværksmodul", [...network, ...pick(["NMST"])]],
+    ["Device", [...pick(["IDM", "GCDN"]), ...device]],
+    ["Network module", [...network, ...pick(["NMST"])]],
   ];
 }
 
 function versionText(v) {
   if (v.raw === null || v.raw === undefined) return v.status === "unknown" ? "—" : (v.status_text || v.status);
-  if (v.raw.trim() === "") return "(ikke angivet)";
+  if (v.raw.trim() === "") return "(not set)";
   return v.text;
 }
 
 function renderVersions() {
   const body = $("#versions-body");
-  const children = [el("div", { class: "section" }, "Denne app")];
+  const children = [el("div", { class: "section" }, "This app")];
   children.push(el("div", { class: "row" },
     el("dt", {}, "AVM70 Diagnostics"),
     el("dd", {}, el("span", { class: "val" }, appVersion ? `v${appVersion.version} build ${appVersion.build}` : "—")),
@@ -480,8 +485,8 @@ function renderVersions() {
   const c = state.connection;
   $("#versions-refresh").disabled = !c || c.status !== "connected";
   $("#versions-hint").textContent = c && c.status === "connected"
-    ? `Hentet fra ${c.host}:${c.port}. "Opdatér" spørger enheden igen.`
-    : "Ikke forbundet — viser de senest hentede værdier.";
+    ? `Read from ${c.host}:${c.port}. "Refresh" queries the device again.`
+    : "Not connected — showing the most recently read values.";
 }
 
 function versionsAsText() {
@@ -508,7 +513,7 @@ async function copyText(text) {
   ta.setSelectionRange(0, text.length);
   const ok = document.execCommand("copy");
   ta.remove();
-  if (!ok) throw new Error("Browseren tillod ikke kopiering — markér teksten manuelt");
+  if (!ok) throw new Error("The browser did not allow copying — select the text manually");
 }
 
 $("#btn-versions").onclick = () => {
@@ -519,15 +524,52 @@ $("#versions-close").onclick = () => $("#versions").close();
 $("#versions-refresh").onclick = (e) => action(e.currentTarget, async () => {
   await api("POST", "/api/refresh?group=version");
   renderVersions();
-  toast("Versioner genforespurgt");
+  toast("Versions re-queried");
 });
 $("#versions-copy").onclick = async () => {
   try {
     await copyText(versionsAsText());
-    toast("Versionsoplysninger kopieret");
+    toast("Version information copied");
   } catch (err) {
     toast(err.message, true);
   }
+};
+
+// ---------------------------------------------------------------- rapport (FEATURES #12)
+
+/** Henter diagnoserapporten og gemmer den som fil. fetch + blob i stedet
+ *  for et almindeligt link, så en fejl fra backend kan vises som toast. */
+async function downloadReport() {
+  let res;
+  try {
+    res = await fetch("/api/export");
+  } catch (err) {
+    throw new Error(`Cannot reach the app backend (${err.message})`);
+  }
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const d = await res.json(); if (typeof d.detail === "string") msg = d.detail; } catch { /* ikke-JSON fejlsvar — HTTP-status er det bedste vi har */ }
+    throw new Error(msg);
+  }
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match ? match[1] : "AVM70_report.txt";
+  const url = URL.createObjectURL(await res.blob());
+  const a = el("a", { href: url, download: filename });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return filename;
+}
+
+$("#btn-report").onclick = (e) => {
+  const btn = e.currentTarget;
+  btn.textContent = "⬇ Preparing…";
+  action(btn, async () => {
+    const name = await downloadReport();
+    toast(`Report downloaded: ${name}`);
+  }).finally(() => { btn.textContent = "⬇ Report"; });
 };
 
 // ---------------------------------------------------------------- start

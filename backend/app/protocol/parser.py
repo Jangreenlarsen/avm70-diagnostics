@@ -18,11 +18,11 @@ ERROR_KINDS = {
 }
 
 ERROR_TEXT = {
-    "invalid": "Ugyldig kommando",
-    "out_of_range": "Uden for gyldigt område",
-    "cannot_execute": "Kan ikke udføres nu",
-    "zone_off": "Zonen er slukket",
-    "timeout": "Intet svar",
+    "invalid": "Invalid command",
+    "out_of_range": "Out of range",
+    "cannot_execute": "Cannot execute now",
+    "zone_off": "Zone is off",
+    "timeout": "No response",
 }
 
 _ZONE_SUFFIXES = sorted(

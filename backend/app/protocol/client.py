@@ -80,17 +80,17 @@ class AvmClient:
             )
         except asyncio.TimeoutError:
             raise AvmConnectionError(
-                f"Ingen forbindelse til {self.host}:{self.port} inden for "
-                f"{self._connect_timeout:g} s (enheden er slukket, IP-adressen er forkert, "
-                f"eller en firewall blokerer)"
+                f"No connection to {self.host}:{self.port} within "
+                f"{self._connect_timeout:g} s (device is off, wrong IP address, "
+                f"or a firewall is blocking)"
             ) from None
         except ConnectionRefusedError:
             raise AvmConnectionError(
-                f"{self.host}:{self.port} afviste forbindelsen (IP Control slået fra, "
-                f"forkert port, eller en anden klient er allerede forbundet)"
+                f"{self.host}:{self.port} refused the connection (IP Control disabled, "
+                f"wrong port, or another client is already connected)"
             ) from None
         except OSError as exc:
-            raise AvmConnectionError(f"Kunne ikke forbinde til {self.host}:{self.port}: {exc}") from None
+            raise AvmConnectionError(f"Could not connect to {self.host}:{self.port}: {exc}") from None
         self._read_task = asyncio.create_task(self._read_loop())
 
     async def close(self) -> None:
@@ -101,7 +101,7 @@ class AvmClient:
                 await self._read_task
             except (asyncio.CancelledError, Exception):  # noqa: BLE001 — oprydning; fejlen er allerede håndteret i _read_loop
                 pass
-        self._mark_closed("Forbindelsen blev lukket")
+        self._mark_closed("Connection closed")
 
     async def query(self, code: str, origin: str = "console", timeout: float = 1.5) -> QueryResult:
         """Send `<code>?;` og vent på svaret.
@@ -111,9 +111,9 @@ class AvmClient:
         fordi en slukket zone eller ukendt kode lovligt kan give tavshed."""
         code = code.strip().upper()
         if not _CODE_RE.match(code):
-            raise ValueError(f"Ugyldig kode: {code!r}")
+            raise ValueError(f"Invalid code: {code!r}")
         if not self.connected:
-            raise AvmConnectionError("Ikke forbundet til AVM70")
+            raise AvmConnectionError("Not connected to AVM70")
         future = asyncio.get_running_loop().create_future()
         pending = _Pending(code, origin, future)
         self._pending.append(pending)
@@ -129,18 +129,18 @@ class AvmClient:
     async def _send(self, line: str, origin: str) -> None:
         async with self._write_lock:
             if not self.connected:
-                raise AvmConnectionError("Ikke forbundet til AVM70")
+                raise AvmConnectionError("Not connected to AVM70")
             self._on_traffic("tx", line, origin)
             try:
                 self._writer.write(f"{line};".encode("latin-1"))
                 await self._writer.drain()
             except OSError as exc:
-                self._mark_closed(f"Skrivefejl: {exc}")
-                raise AvmConnectionError(f"Forbindelsen til AVM70 er tabt ({exc})") from None
+                self._mark_closed(f"Write error: {exc}")
+                raise AvmConnectionError(f"Connection to AVM70 lost ({exc})") from None
 
     async def _read_loop(self) -> None:
         splitter = StreamSplitter()
-        reason = "AVM70 lukkede forbindelsen"
+        reason = "AVM70 closed the connection"
         try:
             while True:
                 data = await self._reader.read(4096)
@@ -151,7 +151,7 @@ class AvmClient:
         except asyncio.CancelledError:
             raise
         except OSError as exc:
-            reason = f"Forbindelsen til AVM70 er tabt ({exc})"
+            reason = f"Connection to AVM70 lost ({exc})"
         finally:
             self._mark_closed(reason)
 
@@ -162,7 +162,7 @@ class AvmClient:
         try:
             self._on_message(msg, origin)
         except Exception:  # noqa: BLE001 — en fejl i tilstandshåndteringen må ikke dræbe læse-løkken
-            logger.exception("Fejl under behandling af besked %r", raw)
+            logger.exception("Error while handling message %r", raw)
 
     def _resolve_pending(self, msg: Message) -> str:
         """Find den ventende forespørgsel beskeden svarer på. Returnerer
@@ -193,4 +193,4 @@ class AvmClient:
             if not p.future.done():
                 p.future.set_exception(AvmConnectionError(reason))
         if not self._closing:
-            logger.warning("AVM70-forbindelse tabt: %s", reason)
+            logger.warning("AVM70 connection lost: %s", reason)
