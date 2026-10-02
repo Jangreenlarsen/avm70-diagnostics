@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "PowerShell(git push --force*)",
+      "Bash(git reset --hard origin*)"
+    ],
+    "allow": [
+      "Bash",
+      "PowerShell",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "Bash(*/.venv/Scripts/python.exe -m pytest*)",
+      "Bash(*/.venv/Scripts/python.exe -m uvicorn*)",
+      "Bash(*/.venv/Scripts/python.exe -m app.tools.fake_avm*)"
+    ]
+  }
+}
