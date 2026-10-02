@@ -15,6 +15,7 @@ from app.config import DeviceSettings
 from app.protocol import catalog
 from app.protocol.client import AvmClient, AvmConnectionError, QueryResult
 from app.protocol.parser import ERROR_TEXT, Message
+from app.services.changelog import ChangeLog
 
 logger = logging.getLogger("avm70")
 
@@ -58,6 +59,7 @@ class DeviceService:
         self._wake = asyncio.Event()
         self._probe_running = False
         self.last_probe: dict | None = None  # {"at": iso, "results": [...]} til rapporten
+        self.changelog = ChangeLog()  # FEATURES.md #14
         self.values: dict[str, ValueState] = {}
         self.traffic: deque[dict] = deque(maxlen=RING_SIZE)
         self.log: deque[dict] = deque(maxlen=RING_SIZE)
@@ -88,6 +90,7 @@ class DeviceService:
             "log": list(self.log),
             "traffic": list(self.traffic)[-300:],
             "probe_running": self._probe_running,
+            "changelog": self.changelog.to_dict(),
         }
 
     # ------------------------------------------------------------ pub/sub
@@ -169,7 +172,35 @@ class DeviceService:
                     f"{state.label}: {old_text} → {state.text}",
                     code=state.code, group=state.group, old=previous, new=raw, source=source,
                 )
+        entry = self.changelog.add_value(state.code, state.label, state.group, previous, raw, source, ts)
+        if entry is not None:
+            self._publish("changelog_entry", entry)
         self._publish("value", asdict(state))
+
+    # ------------------------------------------------------------ ændringslog
+
+    def _changelog_marker(self, text: str) -> None:
+        entry = self.changelog.add_marker(text)
+        if entry is not None:
+            self._publish("changelog_entry", entry)
+
+    def _publish_changelog(self) -> None:
+        self._publish("changelog", self.changelog.to_dict())
+
+    def new_changelog(self) -> dict:
+        """"Start new log": nyt øjebliksbillede af de nuværende værdier.
+        Kendes der ingen værdier endnu, startes loggen ved næste fulde
+        aflæsning."""
+        known = [asdict(v) for v in self.values.values() if v.status == "ok"]
+        if known:
+            self.changelog.start(known)
+            if not self.connected:
+                self._changelog_marker("Log started while disconnected - initial values are the last known values")
+        else:
+            self.changelog.clear()
+        self._add_log("info", "Change log restarted")
+        self._publish_changelog()
+        return self.changelog.to_dict()
 
     def _apply_result(self, result: QueryResult, source: str) -> None:
         """Fejlsvar/timeout ændrer status, ikke den sidst kendte værdi —
@@ -258,6 +289,8 @@ class DeviceService:
         if target_changed:
             self._init_values()
             self.last_probe = None
+            self.changelog.clear()
+            self._publish_changelog()
             self._publish("reset", self.snapshot())
         self.connection.update(host=settings.host, port=settings.port)
         self._publish("connection", dict(self.connection))
@@ -303,6 +336,7 @@ class DeviceService:
             delay = BACKOFF_START
             self._set_connection("connected")
             self._add_log("connection", f"Connected to {self.settings.host}:{self.settings.port}")
+            self._changelog_marker("Connected - values re-read; changes listed next may have happened while disconnected")
             try:
                 await self._refresh_all("refresh")
                 while not self._stop.is_set() and client.connected:
@@ -321,6 +355,7 @@ class DeviceService:
             if not self._stop.is_set():
                 reason = client.disconnect_reason or "Connection closed"
                 self._add_log("error", reason)
+                self._changelog_marker(f"Connection lost: {reason}")
                 if not self.settings.auto_reconnect:
                     self._set_connection("disconnected", error=reason)
                     break
@@ -331,6 +366,7 @@ class DeviceService:
         if self.connection["status"] != "disconnected":
             self._set_connection("disconnected")
         self._add_log("connection", "Disconnected")
+        self._changelog_marker("Disconnected - logging paused")
 
     # ------------------------------------------------------------ forespørgsler
 
@@ -367,6 +403,10 @@ class DeviceService:
         await self._refresh_inputs(origin)
         await self._query_many(self._runtime_codes(), origin)
         self._add_log("info", "Full read of system and runtime values completed")
+        if not self.changelog.started:
+            self.changelog.start([asdict(v) for v in self.values.values()])
+            self._add_log("info", f"Change log started with {len(self.changelog.baseline)} initial values")
+            self._publish_changelog()
 
     async def refresh(self, group: str | None = None) -> None:
         """Genforespørg alt, eller kun én gruppe (fx "version" fra versionsmenuen)."""

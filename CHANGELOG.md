@@ -4,6 +4,22 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.7.0 build 0007] — 2026-10-03 — Ændringslog med initialværdier, gemmes som tekst
+
+FEATURES.md #14 og BUGS.md #2.
+
+**Filer tilføjet:**
+- `backend/app/services/changelog.py`: `ChangeLog` med baseline (kun værdier læst ok), ændringer (`change`), værdier der ikke var kendt ved start (`first`) og forbindelsesmarkører. Maks. 20.000 poster, ældste droppes og tælles. `build_text()` laver en engelsk tekstfil i UTF-8 med CRLF: hoved, initialværdier pr. gruppe og ændringer med afkodet og rå værdi
+- `backend/tests/test_changelog.py`: 15 tests (før start, baseline-filtrering, kun reelle ændringer, første værdi, ændring efter fejlstatus, loft, tekstlinjer, filnavn, start efter fuld aflæsning, push-ændring, reconnect-markører, API reset/export, nulstilling ved adresseskift)
+
+**Filer ændret:**
+- `backend/app/services/device_service.py`: loggen startes efter første fulde aflæsning. Hver ny værdi går gennem `changelog.add_value()`, også efter en fejlstatus (event-loggen springer den over). Markører ved forbindelse, tabt forbindelse og afbrydelse. `new_changelog()`. Loggen nulstilles ved skift af host/port. Nye SSE-events `changelog` og `changelog_entry`
+- `backend/app/api/routes.py`: `GET /api/changelog`, `POST /api/changelog/reset`, `GET /api/changelog/export`
+- `backend/app/desktop.py`: `save(kind)` med whitelist (`report`, `changelog`), så JS ikke kan bede om vilkårlige URL'er. `_attach`/`_EXPORTS` er private, så pywebview ikke eksponerer dem til JS
+- `frontend/index.html`, `app.js`, `styles.css`: "Change log"-fane (første fane) med status, sammenklappelige initialværdier, ændringer live, "Save to file" og "Start new log". Fælles `saveExport()` til rapport og log
+- `backend/tests/test_desktop.py`: ugyldig escape-sekvens rettet (BUGS.md #2)
+- `backend/tests/test_scripts.py`: alle `.py` kompileres med `SyntaxWarning` som fejl
+
 ## [0.6.0 build 0006] — 2026-10-03 — Selvstændig Windows-app (AVM70Diagnostics.exe)
 
 FEATURES.md #13 og BUGS.md #1. Appen kan nu køres som én exe-fil med eget vindue, uden Python-installation.

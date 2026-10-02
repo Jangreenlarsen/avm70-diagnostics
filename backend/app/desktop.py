@@ -106,20 +106,30 @@ class DesktopApi:
         # Window-objekt der kan nå sig selv giver rekursion i den proces.
         self._window = None
 
-    def attach(self, window) -> None:
+    def _attach(self, window) -> None:
         self._window = window
 
+    # Kun disse endpoints kan gemmes — JS kan ikke bede launcheren hente
+    # vilkårlige URL'er.
+    _EXPORTS = {"report": "api/export", "changelog": "api/changelog/export"}
+
     def save_report(self) -> dict:
+        return self.save("report")
+
+    def save(self, kind: str) -> dict:
+        path = self._EXPORTS.get(kind)
+        if path is None:
+            raise RuntimeError(f"Unknown export: {kind!r}")
         try:
-            with urllib.request.urlopen(self._base_url + "api/export", timeout=60) as res:
+            with urllib.request.urlopen(self._base_url + path, timeout=60) as res:
                 data = res.read()
                 header = Message()
                 header["content-disposition"] = res.headers.get("Content-Disposition", "")
                 filename = header.get_filename() or "AVM70_report.txt"
         except urllib.error.HTTPError as exc:
-            raise RuntimeError(f"Report export failed (HTTP {exc.code})") from None
+            raise RuntimeError(f"Export failed (HTTP {exc.code})") from None
         except OSError as exc:
-            raise RuntimeError(f"Report export failed: {exc}") from None
+            raise RuntimeError(f"Export failed: {exc}") from None
 
         import webview
 
@@ -137,7 +147,7 @@ class DesktopApi:
             path.write_bytes(data)
         except OSError as exc:
             raise RuntimeError(f"Could not save {path.name}: {exc.strerror or exc}") from None
-        logger.info("Report saved to %s", path)
+        logger.info("%s saved to %s", kind.capitalize(), path)
         return {"saved": True, "path": str(path), "name": path.name}
 
 
@@ -212,7 +222,7 @@ def main() -> int:
                 webview.settings["REMOTE_DEBUGGING_PORT"] = int(debug_port)
                 logger.warning("WebView2 remote debugging enabled on port %s (AVM70_DEBUG_PORT)", debug_port)
             api = DesktopApi(url)
-            api.attach(webview.create_window(
+            api._attach(webview.create_window(
                 f"{APP_NAME} v{version.get('version', '?')}",
                 url, width=1400, height=950, min_size=(480, 600), js_api=api,
             ))

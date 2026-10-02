@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from app import config
 from app.protocol import catalog
-from app.services import report
+from app.services import changelog, report
 from app.services.device_service import BusyError, DeviceService, NotConnectedError
 
 router = APIRouter(prefix="/api")
@@ -164,6 +164,36 @@ async def export(request: Request) -> Response:
         content=text.encode("utf-8"),
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/changelog")
+async def get_changelog(request: Request) -> dict:
+    return service(request).changelog.to_dict()
+
+
+@router.post("/changelog/reset")
+async def reset_changelog(request: Request) -> dict:
+    return service(request).new_changelog()
+
+
+@router.get("/changelog/export")
+async def export_changelog(request: Request) -> Response:
+    """Ændringsloggen som tekstfil (FEATURES.md #14)."""
+    dev = service(request)
+    now = datetime.now(timezone.utc)
+    known = {code: v for code, v in dev.values.items() if v.status == "ok" or v.raw is not None}
+    serial = known["GSN"].raw if "GSN" in known else None
+    device = {
+        "model": known["IDM"].raw if "IDM" in known else None,
+        "serial": serial,
+        "address": f"{dev.settings.host}:{dev.settings.port}",
+    }
+    text = changelog.build_text(dev.changelog.to_dict(), device, config.app_version(), now)
+    return Response(
+        content=text.encode("utf-8"),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{changelog.changelog_filename(serial, now)}"'},
     )
 
 

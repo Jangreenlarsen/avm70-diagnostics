@@ -84,6 +84,7 @@ const state = {
   values: new Map(),
   log: [],
   traffic: [],
+  changelog: { started_at: null, baseline: [], entries: [], dropped: 0 },
 };
 
 // ---------------------------------------------------------------- render: connection
@@ -256,7 +257,9 @@ function applySnapshot(s) {
   state.values = new Map(s.values.map((v) => [v.code, v]));
   state.log = s.log;
   state.traffic = s.traffic;
+  state.changelog = s.changelog || state.changelog;
   renderConnection();
+  renderChangelog();
   renderCards();
   renderLog();
   renderTraffic();
@@ -270,6 +273,8 @@ function connectEvents() {
   es.addEventListener("value", (e) => updateValue(JSON.parse(e.data)));
   es.addEventListener("log", (e) => addLog(JSON.parse(e.data)));
   es.addEventListener("traffic", (e) => addTraffic(JSON.parse(e.data)));
+  es.addEventListener("changelog", (e) => { state.changelog = JSON.parse(e.data); renderChangelog(); });
+  es.addEventListener("changelog_entry", (e) => addChangelogEntry(JSON.parse(e.data)));
   es.onerror = () => {
     // EventSource genforbinder selv; vis kun at backend er væk.
     const pill = $("#conn-pill");
@@ -539,10 +544,10 @@ $("#versions-copy").onclick = async () => {
 
 /** Henter diagnoserapporten og gemmer den som fil. fetch + blob i stedet
  *  for et almindeligt link, så en fejl fra backend kan vises som toast. */
-async function downloadReport() {
+async function downloadFile(path, fallbackName) {
   let res;
   try {
-    res = await fetch("/api/export");
+    res = await fetch(path);
   } catch (err) {
     throw new Error(`Cannot reach the app backend (${err.message})`);
   }
@@ -553,7 +558,7 @@ async function downloadReport() {
   }
   const disposition = res.headers.get("Content-Disposition") || "";
   const match = disposition.match(/filename="([^"]+)"/);
-  const filename = match ? match[1] : "AVM70_report.txt";
+  const filename = match ? match[1] : fallbackName;
   const url = URL.createObjectURL(await res.blob());
   const a = el("a", { href: url, download: filename });
   document.body.append(a);
@@ -566,24 +571,97 @@ async function downloadReport() {
 /** Kører appen som Windows-app (exe), gemmes rapporten via en rigtig
  *  "Save as"-dialog i launcheren — WebView2 dropper blob-downloads stille. */
 function desktopApi() {
-  return window.pywebview && window.pywebview.api && window.pywebview.api.save_report ? window.pywebview.api : null;
+  return window.pywebview && window.pywebview.api && window.pywebview.api.save ? window.pywebview.api : null;
+}
+
+/** Gem en eksport ("report" | "changelog"): "Save As" i app-vinduet,
+ *  almindelig download i browseren. */
+async function saveExport(kind, path, fallbackName) {
+  const desktop = desktopApi();
+  if (desktop) {
+    let r;
+    try { r = await desktop.save(kind); }
+    catch (err) { throw new Error((err && err.message) || String(err)); }
+    if (r && r.saved) toast(`Saved: ${r.path}`);
+    return;  // annulleret "Save as" er ikke en fejl
+  }
+  const name = await downloadFile(path, fallbackName);
+  toast(`Downloaded: ${name}`);
 }
 
 $("#btn-report").onclick = (e) => {
   const btn = e.currentTarget;
   btn.textContent = "⬇ Preparing…";
-  action(btn, async () => {
-    const desktop = desktopApi();
-    if (desktop) {
-      let r;
-      try { r = await desktop.save_report(); }
-      catch (err) { throw new Error((err && err.message) || String(err)); }
-      if (r && r.saved) toast(`Report saved: ${r.path}`);
-      return;  // annulleret "Save as" er ikke en fejl
-    }
-    const name = await downloadReport();
-    toast(`Report downloaded: ${name}`);
-  }).finally(() => { btn.textContent = "⬇ Report"; });
+  action(btn, () => saveExport("report", "/api/export", "AVM70_report.txt"))
+    .finally(() => { btn.textContent = "⬇ Report"; });
+};
+
+// ---------------------------------------------------------------- ændringslog (FEATURES #14)
+
+const GROUP_TITLE = (g) => state.groups[g] || g;
+
+function shownValue(text, raw) {
+  if (raw === null || raw === undefined) return "—";
+  if (raw.trim() === "") return "(not set)";
+  return text ?? raw;
+}
+
+function changelogRow(e) {
+  if (e.kind === "connection") {
+    return el("tr", { class: "cl-marker" }, el("td", { class: "ts" }, fmtTime(e.ts)), el("td", { colspan: "4" }, e.text));
+  }
+  const to = shownValue(e.new_text, e.new_raw);
+  return el("tr", { class: e.kind === "first" ? "cl-first" : "" },
+    el("td", { class: "ts" }, fmtTime(e.ts)),
+    el("td", {}, SOURCE_TEXT[e.source] || e.source),
+    el("td", {}, `${e.label} `, el("span", { class: "raw" }, e.code)),
+    el("td", {}, e.kind === "first" ? "(first value)" : shownValue(e.old_text, e.old_raw)),
+    el("td", {}, to),
+  );
+}
+
+function renderChangelogStatus() {
+  const cl = state.changelog;
+  const changes = cl.entries.filter((e) => e.kind !== "connection").length;
+  $("#cl-status").textContent = cl.started_at
+    ? `Started ${new Date(cl.started_at).toLocaleString("en-GB", { hour12: false })} · ${cl.baseline.length} initial values · ${changes} change${changes === 1 ? "" : "s"}`
+      + (cl.dropped ? ` · oldest ${cl.dropped} dropped` : "")
+    : "Not started yet — starts after the first complete read of the device.";
+  $("#cl-baseline-title").textContent = `Initial values (${cl.baseline.length})`;
+}
+
+function renderChangelog() {
+  const cl = state.changelog;
+  renderChangelogStatus();
+  $("#cl-baseline-body").replaceChildren(...cl.baseline.map((v) => el("tr", {},
+    el("td", {}, GROUP_TITLE(v.group)),
+    el("td", {}, v.label),
+    el("td", {}, shownValue(v.text, v.raw)),
+    el("td", { class: "code" }, v.code),
+  )));
+  const rows = cl.entries.slice(-1000).reverse().map(changelogRow);
+  $("#cl-body").replaceChildren(...(rows.length ? rows
+    : [el("tr", {}, el("td", { colspan: "5", class: "empty" }, cl.started_at ? "No changes since the log started." : "—"))]));
+}
+
+function addChangelogEntry(e) {
+  state.changelog.entries.push(e);
+  if (state.changelog.entries.length > 20000) state.changelog.entries.shift();
+  const body = $("#cl-body");
+  if (body.querySelector("td.empty")) body.replaceChildren();
+  body.prepend(changelogRow(e));
+  while (body.childElementCount > 1000) body.lastElementChild.remove();
+  renderChangelogStatus();
+}
+
+$("#cl-save").onclick = (e) => action(e.currentTarget, () => saveExport("changelog", "/api/changelog/export", "AVM70_changelog.txt"));
+$("#cl-new").onclick = (e) => {
+  if (!confirm("Start a new change log? The current initial values and logged changes are cleared (save them first if you need them).")) return;
+  action(e.currentTarget, async () => {
+    state.changelog = await api("POST", "/api/changelog/reset");
+    renderChangelog();
+    toast(state.changelog.started_at ? "New change log started" : "The log starts after the next complete read");
+  });
 };
 
 // ---------------------------------------------------------------- start
