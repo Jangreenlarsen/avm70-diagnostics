@@ -51,12 +51,15 @@
 
 | Metode | Sti | Formål |
 |--------|-----|--------|
-| GET  | `/api/info` | App-version og AVM70-indstillinger (host/port/poll-interval) |
+| GET  | `/api/info` | App-version, aktuelle og standard-indstillinger, kommandokatalog |
 | GET  | `/api/state` | Fuldt øjebliksbillede: forbindelse, alle kendte værdier, seneste hændelser og trafik |
 | POST | `/api/connect` | Start forbindelsen (med auto-reconnect) |
 | POST | `/api/disconnect` | Stop forbindelsen |
-| POST | `/api/refresh` | Genforespørg alle system- og runtime-kommandoer |
-| POST | `/api/settings` | Skift host/port/poll-interval (gemmes i `data/settings.json`) |
+| POST | `/api/refresh` | Genforespørg alle kommandoer. Med `?group=version` (eller en anden gruppe) kun den gruppe. Ukendt gruppe giver `400` |
+| GET  | `/api/settings` | Aktuelle kommunikationsparametre |
+| PUT  | `/api/settings` | Gem parametre fra opsætningsmenuen (host, port, poll-interval, connect-/svar-timeout, auto-reconnect, auto-connect). Valideres i backend og gemmes i `data/settings.json`. Ændret host/port giver genforbindelse |
+| POST | `/api/settings/test` | Test parametre uden at gemme: kortvarig forbindelse + `IDM?`/`IDS?`. Er adressen den aktive forbindelse, bruges den i stedet (kun én klient) |
+| POST | `/api/settings/reset` | Tilbage til `.env`-standardværdierne |
 | POST | `/api/query` | Rå forespørgsel (`{"command": "Z1VOL?"}`). Kun `?`-forespørgsler accepteres, og andet giver `400` |
 | POST | `/api/probe` | Spørg alle katalog-kommandoer og rapportér hvilke AVM70 understøtter |
 | GET  | `/api/events` | SSE: `state`, `value`, `connection`, `traffic`, `log`-events og heartbeat |
@@ -88,6 +91,7 @@
 ├── CHANGELOG.md
 ├── RELEASE_NOTES.md
 ├── README.md
+├── AVM70_REFERENCE.md         # protokol-noter + observerede svar fra den rigtige enhed
 ├── run.ps1                    # opret venv + start app
 ├── .claude/
 │   └── settings.local.json
