@@ -13,7 +13,12 @@
 
 ```
 ┌──────────────────────────────┐
-│  Frontend (browser)           │  frontend/  — HTML/CSS/JS, intet build-trin
+│  Launcher (kun .exe)          │  app/desktop.py — eget vindue (WebView2),
+│                               │  intern server på 127.0.0.1:<ledig port>
+└──────────────┬───────────────┘
+               │ starter / viser
+┌──────────────▼───────────────┐
+│  Frontend (browser/vindue)    │  frontend/  — HTML/CSS/JS, intet build-trin
 └──────────────┬───────────────┘
                │ HTTP REST + Server-Sent Events (/api/events)
 ┌──────────────▼───────────────┐
@@ -38,6 +43,12 @@
 ---
 
 ## Lag-beskrivelse
+
+### Lag 0 — Launcher (Windows-app, FEATURES.md #13)
+- **Ansvar**: Starter API'et (uvicorn) i en baggrundstråd på `127.0.0.1` og en ledig port, og viser frontenden i et eget vindue (pywebview/Edge WebView2). Håndhæver én instans (Windows-mutex `Local\AVM70Diagnostics.SingleInstance`), logger til fil og stopper serveren pænt når vinduet lukkes.
+- **Filer**: `app/desktop.py`, `packaging/launcher.py` (PyInstaller-indgang), `packaging/build_exe.py`, `build.ps1`
+- **Regler**: Ingen forretningslogik. Lytter aldrig på andet end `127.0.0.1` (Jans valg: kun PC'en).
+- **Pakket tilstand** (`config.FROZEN`): `frontend/` og `version.json` ligger i bundlen (`sys._MEIPASS`). Indstillinger og log ligger i `%LOCALAPPDATA%\AVM70 Diagnostics\`, og en evt. `.env` læses ved siden af exe'en.
 
 ### Lag 1 — Frontend
 - **Ansvar**: Viser systeminfo, runtime-data, hændelseslog, rå trafik, rå-forespørgsel og probe-resultat. Opdateres live via SSE.
@@ -93,7 +104,9 @@
 ├── RELEASE_NOTES.md
 ├── README.md
 ├── AVM70_REFERENCE.md         # protokol-noter + observerede svar fra den rigtige enhed
-├── run.ps1                    # opret venv + start app
+├── run.ps1                    # opret venv + start app i browseren (udvikling)
+├── build.ps1                  # byg dist\AVM70Diagnostics.exe
+├── packaging/                 # launcher.py, build_exe.py, requirements-build.txt, avm70.ico
 ├── .claude/
 │   └── settings.local.json
 ├── backend/
@@ -101,6 +114,7 @@
 │   ├── .env.example
 │   ├── app/
 │   │   ├── main.py            # FastAPI-app, serverer frontend/
+│   │   ├── desktop.py         # Windows-app-launcher (vindue + intern server)
 │   │   ├── config.py          # .env + data/settings.json
 │   │   ├── api/routes.py
 │   │   ├── services/device_service.py

@@ -2,6 +2,15 @@
 
 ---
 
+## v0.6.0 — 2026-10-03 — Selvstændig Windows-app
+
+- **`AVM70Diagnostics.exe`**: dobbeltklik, og appen åbner i sit eget vindue. Den kræver ingen Python og ingen browser.
+- Lukkes vinduet, stopper appen og frigiver AVM70-forbindelsen.
+- Der kan kun køre én kopi ad gangen, og en kopi nummer to viser en besked. AVM70 tager kun én klient.
+- **⬇ Report** åbner nu en "Save As"-dialog, så du selv vælger hvor rapporten gemmes. Standard er Overførsler.
+- Indstillinger og log ligger i `%LOCALAPPDATA%\AVM70 Diagnostics\`.
+- Rettet: `run.ps1` kunne ikke køre i Windows PowerShell på grund af danske tegn (BUGS.md #1).
+
 ## v0.5.0 — 2026-10-02 — Diagnoserapport til Anthem support
 
 - **⬇ Report** i topbjælken henter en tekstfil, fx `AVM70_ALP2000256N070_20261002-234531.txt`, som kan sendes direkte til Anthem.

@@ -19,7 +19,8 @@ Appen kører lokalt på Jans Windows-PC: én Python-proces der både taler med A
 **Reference-stack**:
 - **Backend**: Python 3.12+ / FastAPI / uvicorn, egen asyncio-protokolklient (ikke `anthemav`)
 - **Frontend**: statisk HTML/CSS/vanilla JS (intet build-trin), live-opdatering via Server-Sent Events
-- **Deployment**: lokalt på Jans PC via `run.ps1` (opretter venv og starter serveren)
+- **Deployment**: `dist\AVM70Diagnostics.exe` (bygges med `build.ps1`, PyInstaller + pywebview, Python 3.12) åbner appen i eget vindue og kun på `127.0.0.1`. Til udvikling bruges `run.ps1` (browser).
+- **PowerShell-scripts skal være ren ASCII** (BUGS.md #1): Windows PowerShell 5.1 læser `.ps1` uden BOM som ANSI. Det håndhæves af `tests/test_scripts.py`.
 
 ---
 
