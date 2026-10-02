@@ -563,10 +563,24 @@ async function downloadReport() {
   return filename;
 }
 
+/** Kører appen som Windows-app (exe), gemmes rapporten via en rigtig
+ *  "Save as"-dialog i launcheren — WebView2 dropper blob-downloads stille. */
+function desktopApi() {
+  return window.pywebview && window.pywebview.api && window.pywebview.api.save_report ? window.pywebview.api : null;
+}
+
 $("#btn-report").onclick = (e) => {
   const btn = e.currentTarget;
   btn.textContent = "⬇ Preparing…";
   action(btn, async () => {
+    const desktop = desktopApi();
+    if (desktop) {
+      let r;
+      try { r = await desktop.save_report(); }
+      catch (err) { throw new Error((err && err.message) || String(err)); }
+      if (r && r.saved) toast(`Report saved: ${r.path}`);
+      return;  // annulleret "Save as" er ikke en fejl
+    }
     const name = await downloadReport();
     toast(`Report downloaded: ${name}`);
   }).finally(() => { btn.textContent = "⬇ Report"; });

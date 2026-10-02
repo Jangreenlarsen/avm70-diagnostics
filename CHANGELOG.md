@@ -4,6 +4,29 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.6.0 build 0006] — 2026-10-03 — Selvstændig Windows-app (AVM70Diagnostics.exe)
+
+FEATURES.md #13 og BUGS.md #1. Appen kan nu køres som én exe-fil med eget vindue, uden Python-installation.
+
+**Filer tilføjet:**
+- `backend/app/desktop.py`: launcher. Starter uvicorn i en baggrundstråd på `127.0.0.1` og en ledig port, og viser UI'et i et pywebview/WebView2-vindue. Én instans håndhæves via Windows-mutex. Logger til fil i `%LOCALAPPDATA%\AVM70 Diagnostics\`. `sys.stdout`/`stderr` erstattes når de er `None` (windowed exe). Fejl vises i en message box. Serveren stoppes pænt når vinduet lukkes. `DesktopApi.save_report()` gemmer rapporten via "Save As"-dialog. Test-hook `AVM70_DEBUG_PORT` åbner WebView2's CDP-port på localhost
+- `packaging/launcher.py`, `packaging/build_exe.py` (PyInstaller onefile/windowed, Windows-versionsinfo fra `version.json`), `packaging/requirements-build.txt`, `packaging/make_icon.py`, `packaging/avm70.ico`
+- `build.ps1`: build-venv med Python 3.12, giver `dist\AVM70Diagnostics.exe`
+- `backend/tests/test_desktop.py` (9 tests: enkelt-instans, port, std-streams, Save-as inkl. annullering og fejl), `backend/tests/test_scripts.py` (`.ps1` skal være ASCII)
+
+**Filer ændret:**
+- `backend/app/config.py`: pakket tilstand (`FROZEN`). Ressourcer læses fra bundlen, data fra `%LOCALAPPDATA%`, `.env` ved siden af exe'en. `VERSION_FILE`/`LOG_FILE`
+- `frontend/app.js`: "⬇ Report" bruger `window.pywebview.api.save_report()` i app-vinduet. WebView2 dropper blob-downloads stille, hvilket blev fundet ved runtime-test af exe'en
+- `run.ps1`, `build.ps1`: ren ASCII og engelsk output (BUGS.md #1)
+- `.gitignore`: `.venv-build/`, `build/`, `dist/`
+- `ARCHITECTURE.md` (nyt lag 0: launcher), `CLAUDE.md`, `README.md`, `BUGS.md`, `FEATURES.md`
+
+**Verificeret i den faktiske runtime (selve exe'en):**
+- Vinduet åbner på ca. 5 s og forbinder til AVM70.
+- "Save As" gemmer rapporten.
+- Kopi nummer to afvises.
+- Når vinduet lukkes, stopper alle processer, og AVM70-forbindelsen frigives.
+
 ## [0.5.0 build 0005] — 2026-10-02 — Diagnoserapport som tekstfil til Anthem support
 
 FEATURES.md #12. "⬇ Report" henter en struktureret engelsk tekstfil med alt appen har hentet fra AVM70. Den er beregnet til at sende til fabrikanten.

@@ -3,22 +3,40 @@ lavet i UI'et, har forrang)."""
 
 import json
 import logging
+import os
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BACKEND_DIR = Path(__file__).resolve().parent.parent
-ROOT_DIR = BACKEND_DIR.parent
-DATA_DIR = BACKEND_DIR / "data"
+# Pakket som .exe (PyInstaller, FEATURES.md #13): frontend og version.json
+# ligger i den udpakkede bundle (sys._MEIPASS), som er skrivebeskyttet og
+# slettes når appen lukker — indstillinger og log skal derfor ligge i
+# brugerens %LOCALAPPDATA%. En evt. .env læses ved siden af exe'en.
+FROZEN = bool(getattr(sys, "frozen", False))
+
+if FROZEN:
+    RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    FRONTEND_DIR = RESOURCE_DIR / "frontend"
+    VERSION_FILE = RESOURCE_DIR / "version.json"
+    ENV_FILE = Path(sys.executable).parent / ".env"
+    DATA_DIR = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "AVM70 Diagnostics"
+else:
+    BACKEND_DIR = Path(__file__).resolve().parent.parent
+    ROOT_DIR = BACKEND_DIR.parent
+    FRONTEND_DIR = ROOT_DIR / "frontend"
+    VERSION_FILE = ROOT_DIR / "version.json"
+    ENV_FILE = BACKEND_DIR / ".env"
+    DATA_DIR = BACKEND_DIR / "data"
 SETTINGS_FILE = DATA_DIR / "settings.json"
-FRONTEND_DIR = ROOT_DIR / "frontend"
+LOG_FILE = DATA_DIR / "avm70-diagnostics.log"
 
 logger = logging.getLogger("avm70")
 
 
 class EnvSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
     avm_host: str = "10.1.1.7"
     avm_port: int = 14999
@@ -118,6 +136,6 @@ def save_device_settings(settings: DeviceSettings) -> None:
 
 def app_version() -> dict:
     try:
-        return json.loads((ROOT_DIR / "version.json").read_text(encoding="utf-8"))
+        return json.loads(VERSION_FILE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {"version": "ukendt", "build": "????"}

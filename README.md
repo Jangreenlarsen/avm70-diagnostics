@@ -2,7 +2,20 @@
 
 Selvstændig diagnostik-app til Anthem AVM 70-lydprocessoren. Appen viser al system-relevant info og runtime-data live i browseren, sammen med rå protokol-trafik og en hændelseslog.
 
-## Start
+## Start som Windows-app
+
+Dobbeltklik på **`AVM70Diagnostics.exe`**. Appen åbner i sit eget vindue og kræver ingen Python-installation, kun Edge WebView2-runtime, som følger med Windows 11. Lukkes vinduet, stopper appen og frigiver forbindelsen til AVM70. Der kan kun køre én kopi ad gangen.
+
+- Indstillinger og log: `%LOCALAPPDATA%\AVM70 Diagnostics\`
+- Rapporter (**⬇ Report**) gemmes i Overførsler.
+
+Byg exe'en (kræver Python 3.12, `py -3.12`):
+
+```powershell
+.\build.ps1        # -> dist\AVM70Diagnostics.exe
+```
+
+## Start i browseren (udvikling)
 
 ```powershell
 .\run.ps1
@@ -10,7 +23,7 @@ Selvstændig diagnostik-app til Anthem AVM 70-lydprocessoren. Appen viser al sys
 
 Første gang opretter scriptet `backend\.venv` og installerer afhængigheder. Derefter starter appen på <http://127.0.0.1:8070>.
 
-AVM70-adressen sættes i `backend\.env` (kopiér fra `.env.example`) eller direkte i UI'et under **Indstillinger**:
+AVM70-adressen sættes i `backend\.env` (kopiér fra `.env.example`) eller direkte i UI'et under **⚙ Setup**:
 
 ```
 AVM_HOST=10.1.1.7

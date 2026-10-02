@@ -1,0 +1,7 @@
+# Build-miljø til AVM70Diagnostics.exe (Python 3.12 — pywebview/pythonnet).
+fastapi>=0.115
+uvicorn>=0.30
+pydantic-settings>=2.3
+pywebview>=6.0
+pyinstaller>=6.10
+pillow>=10.0
