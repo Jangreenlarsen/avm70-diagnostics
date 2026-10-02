@@ -2,6 +2,12 @@
 
 ---
 
+## v0.7.0 — 2026-10-03 — Ændringslog
+
+- Ny fane **Change log**. Når appen har forbundet og læst alt, gemmes et øjebliksbillede af alle værdier ("Initial values"). Derefter logges kun ændringer, med tid i millisekunder, fra → til og om ændringen kom fra enheden selv (push) eller blev fundet ved polling.
+- Tabt og genoprettet forbindelse markeres i loggen, så det er tydeligt når en ændring kan være sket mens forbindelsen var nede.
+- **Save to file** gemmer loggen som tekstfil, fx `AVM70_changelog_ALP2000256N070_20261003-003000.txt`. **Start new log** starter forfra med et nyt øjebliksbillede.
+
 ## v0.6.0 — 2026-10-03 — Selvstændig Windows-app
 
 - **`AVM70Diagnostics.exe`**: dobbeltklik, og appen åbner i sit eget vindue. Den kræver ingen Python og ingen browser.

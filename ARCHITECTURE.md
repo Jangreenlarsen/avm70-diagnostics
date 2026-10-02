@@ -74,11 +74,14 @@
 | POST | `/api/query` | Rå forespørgsel (`{"command": "Z1VOL?"}`). Kun `?`-forespørgsler accepteres, og andet giver `400` |
 | POST | `/api/probe` | Spørg alle katalog-kommandoer og rapportér hvilke AVM70 understøtter |
 | GET  | `/api/export` | Diagnoserapport som struktureret engelsk `.txt` (attachment, `AVM70_<serienr>_<tid>.txt`). Genforespørger alt først, hvis der er forbindelse. Uden forbindelse bruges de senest kendte værdier, og rapporten skriver det tydeligt |
+| GET  | `/api/changelog` | Ændringsloggen (FEATURES.md #14): `started_at`, `baseline` (initialværdier), `entries` (ændringer og forbindelsesmarkører), `dropped` |
+| POST | `/api/changelog/reset` | "Start new log": nyt øjebliksbillede af nuværende værdier. Kendes ingen værdier, startes loggen ved næste fulde aflæsning |
+| GET  | `/api/changelog/export` | Ændringsloggen som tekstfil (`AVM70_changelog_<serienr>_<tid>.txt`) |
 | GET  | `/api/events` | SSE: `state`, `value`, `connection`, `traffic`, `log`-events og heartbeat |
 
 ### Lag 3 — Service
 - **Ansvar**: Én `DeviceService`-instans. Ejer forbindelsen og reconnect-løkken (backoff 2→30 s), holder værdi-tilstanden (værdi, tekst, tidspunkt for seneste svar og seneste ændring), poller runtime-kommandoer med fast interval og publicerer hændelser til SSE-abonnenter. Fører også ringbuffere for trafik og hændelseslog.
-- **Filer**: `app/services/device_service.py`, `app/services/report.py` (ren funktion: snapshot → rapporttekst), `app/config.py`
+- **Filer**: `app/services/device_service.py`, `app/services/report.py` (ren funktion: snapshot → rapporttekst), `app/services/changelog.py` (ændringslog + tekstfil), `app/config.py`
 - **Regler**: Må ikke åbne sockets selv. Går kun via `AvmClient`.
 
 ### Lag 4 — Protokol

@@ -151,6 +151,12 @@ main { padding: 16px; display: grid; gap: 16px; }
 .console-form { display: flex; gap: 6px; }
 .console-form input { flex: 1; min-width: 0; }
 .console-out { font: 12px var(--mono); display: grid; gap: 2px; margin-bottom: 14px; }
+.toolbar .spacer { flex: 1; }
+.baseline { margin: 0 0 10px; border: 1px solid var(--border); border-radius: 6px; }
+.baseline summary { cursor: pointer; padding: 6px 10px; color: var(--muted); font-weight: 600; }
+.baseline .scroll { max-height: 300px; border-top: 1px solid var(--border); }
+.cl-marker td { color: var(--muted); font-style: italic; background: var(--surface-2); }
+.cl-first td:nth-child(4) { color: var(--muted); }
 .probe-bar { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
 .hint { color: var(--muted); font-size: 12px; margin: 6px 0; }
 
@@ -199,3 +205,6 @@ fieldset label:first-of-type:has(input[name="host"]) { grid-column: 1 / -1; }
 
 /* Tid/Type/Kilde-kolonnerne skal kun være så brede som indholdet. */
 .scroll .grid th:not(:last-child), .scroll .grid td:not(:last-child) { width: 1%; white-space: nowrap; }
+
+/* Koden efter et navn i tabeller (ændringsloggen) — adskilt og nedtonet. */
+.grid .raw { margin-left: 6px; color: var(--muted); font: 11px var(--mono); }

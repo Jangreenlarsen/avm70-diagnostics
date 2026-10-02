@@ -14,7 +14,7 @@ windows_only = pytest.mark.skipif(sys.platform != "win32", reason="Windows-mutex
 @windows_only
 def test_second_instance_is_refused_until_first_is_released():
     """AVM70 tager kun én klient — to kopier af appen må ikke køre samtidig."""
-    name = f"Local\AVM70Diagnostics.Test.{uuid.uuid4()}"
+    name = f"Local\\AVM70Diagnostics.Test.{uuid.uuid4()}"
     first = desktop.acquire_single_instance(name)
     assert first is not None
     try:
@@ -83,7 +83,7 @@ def _api(monkeypatch, answer, data=b"REPORT", disposition='attachment; filename=
     monkeypatch.setattr(desktop.urllib.request, "urlopen", lambda url, timeout: _FakeResponse(data, disposition))
     api = desktop.DesktopApi("http://127.0.0.1:1/")
     window = _FakeWindow(answer)
-    api.attach(window)
+    api._attach(window)
     return api, window
 
 
@@ -112,8 +112,8 @@ def test_save_report_export_failure_gives_readable_error(monkeypatch, fake_webvi
         raise desktop.urllib.error.URLError("connection refused")
     monkeypatch.setattr(desktop.urllib.request, "urlopen", boom)
     api = desktop.DesktopApi("http://127.0.0.1:1/")
-    api.attach(_FakeWindow("x"))
-    with pytest.raises(RuntimeError, match="Report export failed"):
+    api._attach(_FakeWindow("x"))
+    with pytest.raises(RuntimeError, match="Export failed"):
         api.save_report()
 
 
@@ -121,3 +121,21 @@ def test_save_report_write_failure_gives_readable_error(monkeypatch, tmp_path, f
     api, _ = _api(monkeypatch, str(tmp_path / "missing-dir" / "r.txt"))
     with pytest.raises(RuntimeError, match="Could not save r.txt"):
         api.save_report()
+
+
+def test_save_only_allows_known_exports(monkeypatch, fake_webview):
+    api, _ = _api(monkeypatch, "x")
+    with pytest.raises(RuntimeError, match="Unknown export"):
+        api.save("../../etc/passwd")
+
+
+def test_save_changelog_uses_changelog_endpoint(monkeypatch, tmp_path, fake_webview):
+    seen = []
+    monkeypatch.setattr(desktop.urllib.request, "urlopen",
+                        lambda url, timeout: seen.append(url) or _FakeResponse(b"LOG", 'attachment; filename="AVM70_changelog_X.txt"'))
+    api = desktop.DesktopApi("http://127.0.0.1:1/")
+    window = _FakeWindow(str(tmp_path / "c.txt"))
+    api._attach(window)
+    assert api.save("changelog")["saved"] is True
+    assert seen == ["http://127.0.0.1:1/api/changelog/export"]
+    assert window.calls[0][1]["save_filename"] == "AVM70_changelog_X.txt"

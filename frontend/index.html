@@ -34,12 +34,37 @@
 
     <section class="panel">
       <nav class="tabs" role="tablist">
-        <button role="tab" data-tab="log" aria-selected="true">Event log</button>
+        <button role="tab" data-tab="changelog" aria-selected="true">Change log</button>
+        <button role="tab" data-tab="log" aria-selected="false">Event log</button>
         <button role="tab" data-tab="traffic" aria-selected="false">Raw traffic</button>
         <button role="tab" data-tab="console" aria-selected="false">Console &amp; probe</button>
       </nav>
 
-      <div class="tab" id="tab-log">
+      <div class="tab" id="tab-changelog">
+        <div class="toolbar">
+          <span class="hint" id="cl-status">Starts after the first complete read of the device.</span>
+          <span class="spacer"></span>
+          <button id="cl-save" class="small primary">Save to file</button>
+          <button id="cl-new" class="small" title="Take a new snapshot of all values and clear the logged changes">Start new log</button>
+        </div>
+        <details class="baseline" id="cl-baseline">
+          <summary id="cl-baseline-title">Initial values</summary>
+          <div class="scroll">
+            <table class="grid">
+              <thead><tr><th>Group</th><th>Item</th><th>Value</th><th>Code</th></tr></thead>
+              <tbody id="cl-baseline-body"></tbody>
+            </table>
+          </div>
+        </details>
+        <div class="scroll">
+          <table class="grid">
+            <thead><tr><th>Time</th><th>Source</th><th>Item</th><th>From</th><th>To</th></tr></thead>
+            <tbody id="cl-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab" id="tab-log" hidden>
         <div class="toolbar">
           <label><input type="checkbox" id="log-changes-only"> Value changes only</label>
           <button id="log-clear" class="small">Clear view</button>
