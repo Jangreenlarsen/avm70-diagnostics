@@ -259,7 +259,7 @@ function applySnapshot(s) {
   state.log = s.log;
   state.traffic = s.traffic;
   state.changelog = s.changelog || state.changelog;
-  state.logmode = s.logmode || null;
+  mergeLogmode(s.logmode || null);
   renderConnection();
   renderChangelog();
   renderLogmode();
@@ -278,7 +278,7 @@ function connectEvents() {
   es.addEventListener("traffic", (e) => addTraffic(JSON.parse(e.data)));
   es.addEventListener("changelog", (e) => { state.changelog = JSON.parse(e.data); renderChangelog(); });
   es.addEventListener("changelog_entry", (e) => addChangelogEntry(JSON.parse(e.data)));
-  es.addEventListener("logmode", (e) => { state.logmode = JSON.parse(e.data); renderLogmode(); });
+  es.addEventListener("logmode", (e) => { mergeLogmode(JSON.parse(e.data)); renderLogmode(); });
   es.addEventListener("logmode_line", (e) => addLogmodeLine(JSON.parse(e.data)));
   es.addEventListener("logmode_counts", (e) => {
     if (state.logmode) { state.logmode.counts = JSON.parse(e.data); renderLogmodeStatus(); }
@@ -687,8 +687,20 @@ $("#cl-new").onclick = (e) => {
 function logmodeLine(e) {
   const block = el("div", { class: `k-${e.kind}` }, e.line);
   if (!e.detail || e.detail.length === 0) return block;
-  const indent = " ".repeat(25);
+  const indent = " ".repeat(37);  // tid (23) + 2 + type-kolonne (12), som i filen
   return el("div", {}, block, ...e.detail.map((d) => el("div", { class: "detail" }, indent + d)));
+}
+
+const lastSeq = (lm) => (lm && lm.lines.length ? lm.lines[lm.lines.length - 1].seq : 0);
+
+/** BUGS.md #3: et HTTP-svar eller et øjebliksbillede kan være ÆLDRE end de
+ *  linjer SSE allerede har leveret. Behold de nyeste linjer for samme session. */
+function mergeLogmode(next) {
+  const cur = state.logmode;
+  if (cur && next && cur.started_at === next.started_at && lastSeq(cur) > lastSeq(next)) {
+    next = { ...next, lines: cur.lines };
+  }
+  state.logmode = next;
 }
 
 function renderLogmodeStatus() {
@@ -721,6 +733,7 @@ function renderLogmode() {
 
 function addLogmodeLine(e) {
   if (!state.logmode) return;
+  if (e.seq <= lastSeq(state.logmode)) return;  // allerede vist (BUGS.md #3)
   state.logmode.lines.push(e);
   if (state.logmode.lines.length > 2000) state.logmode.lines.shift();
   if (e.kind === "stopped") state.logmode.active = false;
@@ -733,7 +746,7 @@ function addLogmodeLine(e) {
 
 $("#lm-toggle").onclick = (e) => action(e.currentTarget, async () => {
   const active = state.logmode && state.logmode.active;
-  state.logmode = await api("POST", active ? "/api/logmode/stop" : "/api/logmode/start");
+  mergeLogmode(await api("POST", active ? "/api/logmode/stop" : "/api/logmode/start"));
   renderLogmode();
   toast(active ? "Log mode stopped" : `Log mode started — polling every ${state.logmode.interval} s`);
 });

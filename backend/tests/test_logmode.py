@@ -57,7 +57,7 @@ def test_unchanged_cycle_logs_only_ok(tmp_path):
     s.record_cycle(BASE, T0, 1.0)
     out = s.record_cycle(BASE, T0 + timedelta(seconds=5), 1.0)
     assert _kinds(out) == ["ok"]
-    assert out[0]["line"].endswith("OK          3/3 polled, no changes")
+    assert out[0]["line"].endswith("OK          POLL 3 commands       3/3 polled, no changes")
 
 
 def test_changed_value_is_logged_instead_of_ok(tmp_path):
@@ -199,3 +199,55 @@ async def test_api_log_mode_validation_stop_and_export(api, fake, data_dir):
 
     r = await api.post("/api/logmode/stop")
     assert r.json()["active"] is False
+
+
+# ------------------------------------------------------------------ kommando-kolonne (FEATURES.md #17)
+
+TEXT_COL = 23 + 2 + 12 + 22  # tid + mellemrum + type + kommando
+
+
+def test_command_column_shows_direction_and_protocol_command(tmp_path):
+    s = _session(tmp_path)
+    init = s.record_cycle(BASE, T0, 1.0)[0]
+    assert init["cmd"] == "POLL 3 commands"
+    assert init["detail"][0].startswith("POLL IDM?")
+    change = s.record_cycle([_r("IDM", "AVM 70"), _r("Z1AIF", "3"), _r("Z2VOL", status="zone_off")], T0, 1.0)[0]
+    assert change["cmd"] == "POLL Z1AIF?"
+    push = s.record_push("Z1AIF", "5", T0)
+    assert push["cmd"] == "PUSH Z1AIF5"
+    ok = s.record_cycle([_r("IDM", "AVM 70"), _r("Z1AIF", "5"), _r("Z2VOL", status="zone_off")], T0, 1.0)[0]
+    assert ok["cmd"] == "POLL 3 commands"
+    marker = s.marker("Connection lost: x")
+    assert marker["cmd"] == ""
+
+
+def test_description_always_starts_in_the_same_column(tmp_path):
+    s = _session(tmp_path)
+    lines = [s.record_cycle(BASE, T0, 1.0)[0], s.record_push("Z1AIN", "Dolby TrueHD Atmos", T0),
+             s.record_cycle(BASE, T0, 1.0)[0], s.marker("Connection lost: x")]
+    for e in lines:
+        assert e["line"][TEXT_COL - 1] == " " and e["line"][TEXT_COL] != " ", e["line"]
+
+
+def test_long_push_command_is_truncated():
+    from app.services.logmode import command_cell
+    cell = command_cell("PUSH", "Z1AINDolby TrueHD Atmos")
+    assert cell == "PUSH Z1AINDolby Tr..."
+    assert len(cell) < 22  # mindst ét mellemrum før forklaringen
+
+
+def test_file_has_column_header(tmp_path):
+    s = _session(tmp_path)
+    text = s.path.read_bytes().decode("utf-8")
+    assert "TIME                     TYPE        COMMAND               DESCRIPTION" in text
+    assert "POLL = query sent by this app" in text
+
+
+def test_every_line_has_an_increasing_sequence_number(tmp_path):
+    """BUGS.md #3: UI'et bruger seq til at vise hver linje præcis én gang."""
+    s = _session(tmp_path)
+    entries = s.record_cycle(BASE, T0, 1.0) + [s.marker("x"), s.record_push("Z1AIF", "3", T0)] \
+        + s.record_cycle(BASE, T0, 1.0) + [s.stop()]
+    seqs = [e["seq"] for e in entries]
+    assert seqs == sorted(seqs) and len(set(seqs)) == len(seqs)
+    assert [e["seq"] for e in s.to_dict()["lines"]] == [e["seq"] for e in s.lines]
