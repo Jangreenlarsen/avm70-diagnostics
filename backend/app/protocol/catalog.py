@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 SYSTEM = "system"
 VERSION = "version"
+SETTINGS = "settings"
 ZONE1 = "zone1"
 AUDIO = "audio"
 VIDEO = "video"
@@ -22,6 +23,7 @@ INPUTS = "inputs"
 GROUP_TITLES = {
     SYSTEM: "System",
     VERSION: "Versions",
+    SETTINGS: "Settings",
     ZONE1: "Zone 1",
     AUDIO: "Audio (zone 1)",
     VIDEO: "Video (zone 1)",
@@ -33,9 +35,16 @@ GROUP_TITLES = {
 # ikke under drift og hentes kun ved forbindelse og manuel opdatering.
 RUNTIME_GROUPS = (ZONE1, AUDIO, VIDEO, ZONE2)
 # Hentes ved forbindelse og manuel opdatering (ikke polling).
-STATIC_GROUPS = (SYSTEM, VERSION)
+STATIC_GROUPS = (SYSTEM, VERSION, SETTINGS)
 
 ON_OFF = {"0": "Off", "1": "On"}
+NO_YES = {"0": "No", "1": "Yes"}
+DISABLED_ENABLED = {"0": "Disabled", "1": "Enabled"}
+# GCMLOWS/GCMDOWS: "mute ... out when selecting" (AVM 70/90-varianten).
+_SOURCES = {"0": "None", **{str(i): f"HDMI {i}" for i in range(1, 8)}, "8": "HDMI ARC",
+            "9": "Coax 1", "10": "Coax 2", "11": "Optical 1", "12": "Optical 2", "13": "Optical 3",
+            **{str(i): f"Analog {i - 13}" for i in range(14, 18)}, "18": "Phono (MM)"}
+_TRIGGER_POWER = {"0": "Off", "1": "Main", "2": "Zone 2", "3": "Main or Zone 2"}
 
 
 @dataclass(frozen=True)
@@ -78,6 +87,36 @@ _COMMANDS = [
     Command("RVER", "Network module — release version", VERSION),
     Command("RBD", "Network module — release build date", VERSION),
     Command("NMR", "Network module — region", VERSION),
+    # --- Settings (FEATURES.md #20) ---
+    # Værditabeller fra den officielle x40-protokol (General Configuration).
+    Command("GCSHDMIB", "Standby HDMI bypass", SETTINGS,
+            {"0": "Off", "1": "Last used", **{str(i): f"HDMI {i - 1}" for i in range(2, 9)}}, numeric_lookup=True),
+    Command("GCCSTBY", "Connected standby", SETTINGS, DISABLED_ENABLED),
+    Command("GCNSPO", "No-signal power off", SETTINGS,
+            {"0": "5 minutes", "1": "10 minutes", "2": "20 minutes", "3": "1 hour", "4": "2 hours",
+             "5": "6 hours", "7": "Never"}, numeric_lookup=True),
+    Command("GCCECC", "CEC control", SETTINGS, ON_OFF),
+    Command("GCCPFC", "CEC power-off control", SETTINGS, DISABLED_ENABLED),
+    Command("GCCTVA", "HDMI audio to TV", SETTINGS, ON_OFF),
+    Command("GCHMMO", "Headphone mutes main outputs", SETTINGS, NO_YES),
+    Command("GCMLOWS", "Mute line-out when selecting", SETTINGS, _SOURCES, numeric_lookup=True),
+    Command("GCMDOWS", "Mute digital-out when selecting", SETTINGS, _SOURCES, numeric_lookup=True),
+    Command("GCMMV", "Main max volume", SETTINGS, unit="dB"),
+    Command("GCMPOV", "Main power-on volume", SETTINGS, {"0": "Last used"}, unit="dB"),
+    Command("GCMPOI", "Main power-on input", SETTINGS, {"0": "Last used"}),
+    Command("GCZ2MMV", "Zone 2 max volume", SETTINGS, unit="dB"),
+    Command("GCZ2POV", "Zone 2 power-on volume", SETTINGS, {"0": "Last used"}, unit="dB"),
+    Command("GCZ2POI", "Zone 2 power-on input", SETTINGS, {"0": "Last used"}),
+    # GCAU findes ikke i protokol-dokumentet (v5, 2020); kendt fra web-UI'et.
+    Command("GCAU", "Automatic updates", SETTINGS, ON_OFF),
+    Command("GCBU", "Beta updates", SETTINGS, NO_YES),
+    Command("GCFIR", "Front IR", SETTINGS, ON_OFF),
+    Command("GCRIR", "Rear IR", SETTINGS, ON_OFF),
+    Command("GCTCP", "TCP port", SETTINGS),
+    *[cmd for t in (1, 2, 3) for cmd in (
+        Command(f"GCT{t}C", f"Trigger {t} control", SETTINGS, {"0": "Menu", "1": "RS-232/IP"}),
+        Command(f"GCT{t}P", f"Trigger {t} power", SETTINGS, _TRIGGER_POWER),
+    )],
     # --- Zone 1 ---
     Command("Z1POW", "Power", ZONE1, {"0": "Standby", "1": "On"}),
     Command("Z1VOL", "Volume", ZONE1, unit="dB"),

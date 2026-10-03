@@ -21,7 +21,7 @@ const STATUS_TEXT = {
   connected: "Connected",
 };
 const SOURCE_TEXT = { push: "push", poll: "poll", refresh: "refresh", console: "console", probe: "probe", test: "test" };
-const GROUP_ORDER = ["system", "inputs", "zone1", "audio", "video", "zone2"];
+const GROUP_ORDER = ["system", "inputs", "zone1", "audio", "video", "zone2", "settings"];
 // Grupper der ikke vises som kort på forsiden (har deres egen menu).
 const MENU_GROUPS = new Set(["version"]);
 

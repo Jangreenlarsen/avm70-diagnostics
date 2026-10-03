@@ -62,6 +62,12 @@ DEFAULT_VALUES = {
     "Z1IRH": "3840",
     "Z1IRV": "2160",
     "Z2POW": "0",
+    # Settings (FEATURES.md #20) - som på Jans enhed 2026-10-03
+    "GCSHDMIB": "0", "GCCSTBY": "1", "GCNSPO": "3", "GCCECC": "1", "GCCPFC": "1", "GCCTVA": "0",
+    "GCHMMO": "1", "GCMLOWS": "0", "GCMDOWS": "0", "GCMMV": "3.5", "GCMPOV": "-30.0", "GCMPOI": "0",
+    "GCZ2MMV": "10.0", "GCZ2POV": "-35.0", "GCZ2POI": "0", "GCAU": "0", "GCBU": "1", "GCFIR": "1",
+    "GCRIR": "0", "GCTCP": "14999", "GCT1C": "0", "GCT1P": "1", "GCT2C": "0", "GCT2P": "1",
+    "GCT3C": "0", "GCT3P": "0",
 }
 ZONE2_OFF = {"Z2VOL", "Z2MUT", "Z2INP"}
 

@@ -4,6 +4,20 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.13.0 build 0014] — 2026-10-03 — Drift- og standby-indstillinger
+
+FEATURES.md #20.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: ny statisk gruppe `settings` med 26 koder og værditabeller fra den officielle protokol: `GCSHDMIB`, `GCCSTBY`, `GCNSPO`, `GCCECC`, `GCCPFC`, `GCCTVA`, `GCHMMO`, `GCMLOWS`, `GCMDOWS`, `GCMMV`, `GCMPOV`, `GCMPOI`, `GCZ2MMV`, `GCZ2POV`, `GCZ2POI`, `GCAU` (kun kendt fra web-UI), `GCBU`, `GCFIR`, `GCRIR`, `GCTCP` og `GCT1C`–`GCT3P`
+- `backend/app/services/report.py`: ny sektion "5. Device settings". Efterfølgende sektioner er omnummereret (6–10)
+- `backend/app/services/changelog.py`: settings indgår i initialværdierne
+- `backend/app/tools/fake_avm.py`: settings-værdier som på Jans enhed
+- `frontend/app.js`: "Settings"-kort på forsiden
+- Tests: 22 nye (afkodning efter den officielle tabel og statisk gruppe). Log mode-testen tæller nu parametre ud fra kataloget
+
+**Bemærk**: log mode poller nu 75 parametre pr. runde (ca. 3 s på den rigtige enhed). Standard-intervallet på 5 s holder, men intervaller under ca. 3 s vil give noten "poll took longer than the interval".
+
 ## [0.12.0 build 0013] — 2026-10-03 — Lyd-bitdybde
 
 FEATURES.md #19.

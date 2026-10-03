@@ -134,14 +134,18 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
     inputs = sorted((c for c, v in values.items() if v["group"] == "inputs"), key=_input_sort_key)
     out += _value_lines(values, inputs) if inputs else ["(input names not read)"]
 
-    out += _heading(5, "Current status")
+    out += _heading(5, "Device settings")
+    settings_codes = [c for c, v in values.items() if v["group"] == "settings"]
+    out += _value_lines(values, settings_codes) if settings_codes else ["(settings not read)"]
+
+    out += _heading(6, "Current status")
     for group, title in STATUS_GROUPS:
         out.append(f"[{title}]")
         out += _value_lines(values, [c for c, v in values.items() if v["group"] == group])
         out.append("")
     out.pop()
 
-    out += _heading(6, "Command support (probe)")
+    out += _heading(7, "Command support (probe)")
     if probe:
         rows = probe["results"]
         ok = sum(1 for r in rows if r["status"] == "ok")
@@ -152,13 +156,13 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
         for r in rows:
             result = "OK" if r["status"] == "ok" else STATUS_TEXT.get(r["status"], r["status"])
             group = group_titles.get(r.get("group"), "")
-            meaning = f"{r['label']} ({group})" if group and r.get("group") not in ("system", "version", "inputs") else r["label"]
+            meaning = f"{r['label']} ({group})" if group and r.get("group") not in ("system", "version", "inputs", "settings") else r["label"]
             out.append(f"{r['code']:<9}{result:<34}{meaning}")
     else:
         out.append("No probe has been run in this session (Console & probe > Run probe).")
 
     log = snapshot["log"][-LOG_LIMIT:]
-    out += _heading(7, f"Event log (last {len(log)} entries, oldest first)")
+    out += _heading(8, f"Event log (last {len(log)} entries, oldest first)")
     for e in log:
         source = f" [{e['source']}]" if e.get("source") else ""
         out.append(f"{_local(e['ts'])}  {e['kind'].upper():<10}{source} {e['text']}")
@@ -166,7 +170,7 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
         out.append("(empty)")
 
     traffic = snapshot["traffic"][-TRAFFIC_LIMIT:]
-    out += _heading(8, f"Raw protocol traffic (last {len(traffic)} lines, oldest first)")
+    out += _heading(9, f"Raw protocol traffic (last {len(traffic)} lines, oldest first)")
     out.append("TX = sent by this app, RX = received from the device; [push] = unsolicited.")
     out.append("")
     for t in traffic:
@@ -176,7 +180,7 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
     if not traffic:
         out.append("(empty)")
 
-    out += _heading(9, "App settings")
+    out += _heading(10, "App settings")
     for key in ("host", "port", "poll_interval", "connect_timeout", "query_timeout", "auto_reconnect",
                 "auto_connect", "log_poll_interval", "owner"):
         out.append(_field(key, str(settings.get(key))))

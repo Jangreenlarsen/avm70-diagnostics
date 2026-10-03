@@ -255,3 +255,25 @@ async def test_blocked_code_is_never_sent_to_the_device(fake):
     finally:
         await c.close()
     assert fake.received == []
+
+
+# ------------------------------------------------------------------ settings-gruppen (FEATURES.md #20)
+
+@pytest.mark.parametrize("code,raw,text", [
+    ("GCSHDMIB", "0", "Off"), ("GCSHDMIB", "1", "Last used"), ("GCSHDMIB", "2", "HDMI 1"), ("GCSHDMIB", "8", "HDMI 7"),
+    ("GCCSTBY", "1", "Enabled"),
+    ("GCNSPO", "3", "1 hour"), ("GCNSPO", "7", "Never"),
+    ("GCCECC", "1", "On"), ("GCCPFC", "0", "Disabled"), ("GCCTVA", "0", "Off"),
+    ("GCHMMO", "1", "Yes"),
+    ("GCMLOWS", "0", "None"), ("GCMLOWS", "8", "HDMI ARC"), ("GCMDOWS", "14", "Analog 1"), ("GCMDOWS", "18", "Phono (MM)"),
+    ("GCMMV", "3.5", "3.5 dB"), ("GCMPOV", "0", "Last used"), ("GCMPOV", "-30.0", "-30.0 dB"),
+    ("GCBU", "1", "Yes"),
+    ("GCT1P", "3", "Main or Zone 2"), ("GCT2C", "1", "RS-232/IP"),
+])
+def test_settings_decoding_follows_the_official_protocol(code, raw, text):
+    assert catalog.decode(code, raw) == text
+    assert catalog.CATALOG[code].group == catalog.SETTINGS
+
+
+def test_settings_are_read_on_connect_not_polled():
+    assert catalog.SETTINGS in catalog.STATIC_GROUPS and catalog.SETTINGS not in catalog.RUNTIME_GROUPS

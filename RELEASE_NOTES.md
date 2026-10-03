@@ -2,6 +2,15 @@
 
 ---
 
+## v0.13.0 — 2026-10-03 — Indstillinger
+
+- Nyt kort **Settings** med de indstillinger der forklarer tænd/sluk-, standby-, CEC- og lydproblemer:
+  - Standby HDMI bypass, Connected standby, No-signal power off
+  - CEC, HDMI audio to TV, Headphone mutes main outputs, mute-regler
+  - Max og power-on volumen og input
+  - Automatiske og beta-opdateringer, IR, TCP-port og 12 V triggere
+- Indstillingerne står også i rapporten (ny sektion 5) og i ændringsloggen, og log mode registrerer hvis de ændrer sig.
+
 ## v0.12.0 — 2026-10-03 — Bitdybde
 
 - Lydkortet viser nu **Bit depth** (16/24/32 bit). Den kommer også med i rapport, ændringslog og log mode, så den er nyttig ved fejlsøgning af lyd-dropouts.

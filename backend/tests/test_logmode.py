@@ -149,7 +149,8 @@ async def test_service_log_mode_init_ok_push_and_poll_change(fake, data_dir):
         await wait_until(lambda: any(e["kind"] == "ok" for e in dev.logmode.lines), timeout=5)
         kinds = [e["kind"] for e in dev.logmode.lines]
         assert kinds[0] == "init"
-        assert "49 parameters" in dev.logmode.lines[0]["line"]            # 43 katalog + 6 input-koder
+        from app.protocol import catalog
+        assert f"{len(catalog.CATALOG) + 6} parameters" in dev.logmode.lines[0]["line"]  # katalog + 6 input-koder
 
         await fake.push("Z1AIF", "5")
         await wait_until(lambda: any(e["kind"] == "push" for e in dev.logmode.lines))
