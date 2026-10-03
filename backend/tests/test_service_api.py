@@ -210,3 +210,10 @@ async def test_refresh_rejects_unknown_group(api):
     r = await api.post("/api/refresh", params={"group": "nope"})
     assert r.status_code == 400
     assert "Unknown group" in r.json()["detail"]
+
+
+async def test_api_query_blocks_action_commands_with_explanation(api):
+    for cmd, word in [("LDFDS?", "factory reset"), ("fcr0001?", "fault counter reset"), ("Z1VUP?", "volume")]:
+        r = await api.post("/api/query", json={"command": cmd})
+        assert r.status_code == 400, cmd
+        assert word in r.json()["detail"] and "not even as a query" in r.json()["detail"]

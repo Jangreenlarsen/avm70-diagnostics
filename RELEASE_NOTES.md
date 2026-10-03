@@ -2,6 +2,10 @@
 
 ---
 
+## v0.11.0 — 2026-10-03 — Beskyttelse mod farlige kommandoer
+
+- Konsollen og alle andre dele af appen nægter nu at sende AVM70's handlingskommandoer, heller ikke som forespørgsel. Det gælder fx fabriksnulstilling, firmware-opdatering, nulstilling af Wi-Fi og fejltællere, sletning af inputs samt volumen- og testtone-kommandoer. Konsollen forklarer hvorfor.
+
 ## v0.10.1 — 2026-10-03 — Rettet visning af lydkanaler
 
 - **Rettet**: "Input channels" viste forkert tekst. Atmos blev vist som "7.1 channels", 7.1 som "6.1 channels", og DTS:X som "Atmos". Appen bruger nu Anthems officielle tabel for AVM 70. Den rå værdi stod hele tiden korrekt ved siden af. Gamle rapporter og logfiler kan derfor have forkert kanaltekst.

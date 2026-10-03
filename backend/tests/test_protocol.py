@@ -219,3 +219,37 @@ def test_version_group_is_static_not_polled():
 ])
 def test_decoding_follows_the_official_x40_protocol(code, raw, text):
     assert catalog.decode(code, raw) == text
+
+
+# ------------------------------------------------------------------ spærreliste (FEATURES.md #18)
+
+@pytest.mark.parametrize("code", [
+    "LDFDS", "LOTFS", "CPYS01", "BSC1", "PRGS21", "PRUID0", "UPDOTA", "UPDUSB", "CKFUPD1",
+    "GCIPV1A", "GCIPV2I", "RWIFIS", "RSTWFS", "RWPS", "NMWPS", "RDBL", "R1SET", "FCR0001",
+    "IIAI", "IDAI3", "CTRL01", "Z1MSG0", "Z1SHC", "Z1SIM", "Z2SIM", "Z1ARCCRP", "Z1ARCMEN",
+    "Z1VUP", "Z2VDN", "Z1PVUP", "Z1TUP0", "Z1LDN", "Z1AUP",
+])
+def test_action_commands_are_blocked(code):
+    assert catalog.blocked_reason(code) is not None
+    assert catalog.blocked_reason(code.lower() + "?") is not None   # også med ? og små bogstaver
+
+
+@pytest.mark.parametrize("code", ["FCC", "FCN0001", "FCQ0001", "Z1ARCVAL", "GCIPSTI", "GCIPSTM",
+                                  "Z1VOL", "Z1PVOL", "IS1IN", "IS12AIJ", "GCTXS", "GCSHDMIB", "Z1BDP"])
+def test_read_codes_are_allowed(code):
+    assert catalog.blocked_reason(code) is None
+
+
+def test_no_catalog_code_is_blocked():
+    assert [c for c in catalog.CATALOG if catalog.blocked_reason(c)] == []
+
+
+async def test_blocked_code_is_never_sent_to_the_device(fake):
+    c = _client(fake.port)
+    await c.connect()
+    try:
+        with pytest.raises(ValueError, match="factory reset command on the AVM70 and is blocked"):
+            await c.query("LDFDS")
+    finally:
+        await c.close()
+    assert fake.received == []

@@ -4,7 +4,7 @@
 
 1. **Ingen lag må springe et lag over.** Frontend kalder kun API'et, API'et kalder kun service-laget, og kun protokol-laget taler TCP med AVM70.
 2. **Kun én forbindelse til AVM70.** Enheden accepterer kun én netværksklient. `DeviceService` ejer den ene `AvmClient`, og intet andet sted i koden må åbne en socket mod enheden.
-3. **Kun læsende.** Protokol-laget har en `query()`. API'ets rå-konsol afviser alt der ikke er en ren forespørgsel (`KODE?`). Afvisningen sker i backend, ikke kun i UI'et.
+3. **Kun læsende.** Protokol-laget har en `query()`. API'ets rå-konsol afviser alt der ikke er en ren forespørgsel (`KODE?`). Afvisningen sker i backend, ikke kun i UI'et. Kendte handlingskoder (`catalog.blocked_reason`, FEATURES.md #18) sendes aldrig, heller ikke som forespørgsel. Det håndhæves i `AvmClient.query`, så det gælder alle veje.
 4. **Alle lag eksponerer kun et veldefineret interface.** Interne implementeringsdetaljer er skjulte.
 
 ---

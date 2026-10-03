@@ -4,6 +4,17 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.11.0 build 0012] — 2026-10-03 — Spærreliste for handlingskoder
+
+FEATURES.md #18.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: `blocked_reason()` med en spærreliste bygget fra Anthems officielle x40-protokol ("Set only"-kommandoer og handlinger): fabriksnulstilling, kopiér/indlæs indstillinger, firmware-programmering/-opdatering, netværk og Wi-Fi, fejltæller-nulstilling, input tilføj/slet, eksklusiv kontrol, beskeder og IR-simulering, ARC-måling og testtoner, volumen-/tone-/niveau-trin
+- `backend/app/protocol/client.py`: `query()` nægter spærrede koder (forsvar i dybden, så det også gælder probe og fremtidige veje)
+- `backend/app/api/routes.py`: `/api/query` giver en `400` med forklaring
+- `frontend/index.html`: hjælpeteksten i konsollen nævner spærringen
+- Tests: 50 nye (alle spærrede koder også med `?` og små bogstaver, tilladte læse-koder, ingen katalog-kode spærret, spærret kode når aldrig fake-enheden, API-besked)
+
 ## [0.10.1 build 0011] — 2026-10-03 — Rettet afkodning efter Anthems officielle x40-protokol
 
 BUGS.md #4.

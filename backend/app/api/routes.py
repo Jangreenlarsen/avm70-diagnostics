@@ -125,6 +125,10 @@ async def query(request: Request, body: QueryBody) -> dict:
         raise HTTPException(400, "Only queries (CODE?) are allowed — the app is read-only")
     if not _QUERY_RE.match(command):
         raise HTTPException(400, "Invalid command — only letters and digits followed by ?, e.g. Z1VOL?")
+    reason = catalog.blocked_reason(command)
+    if reason is not None:
+        raise HTTPException(400, f"{command[:-1]} is a {reason} command on the AVM70 and is blocked — "
+                                 "the app is read-only and never sends it, not even as a query")
     try:
         return await service(request).raw_query(command[:-1])
     except NotConnectedError as exc:

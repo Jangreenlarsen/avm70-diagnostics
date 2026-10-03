@@ -127,6 +127,40 @@ _NUMBER_RE = re.compile(r"^-?\d+(\.\d+)?$")
 _BARE_MAC_RE = re.compile(r"^[0-9A-Fa-f]{12}$")
 
 
+# ---------------------------------------------------------------- spærreliste
+# FEATURES.md #18. Koder der ifølge Anthems officielle x40-protokol (v5) er
+# HANDLINGER. Appen sender aldrig noget til dem — heller ikke "KODE?" — fordi
+# vi ikke kan vide om firmwaren behandler en forespørgsel på en ren
+# handlingskode som harmløs. (Et forsøg med IDAI? gik godt, men det er ikke
+# et bevis for de øvrige.)
+_BLOCKED = [
+    (r"LDFDS|LOTFS", "factory reset"),
+    (r"CPYS", "copy/load settings"),
+    (r"BSC", "bulk settings notification"),
+    (r"PRG[SRBF]|PRUID", "firmware/flash programming"),
+    (r"UPD|CKFUPD|CJFUPD", "firmware update"),
+    (r"GCIPV", "network configuration"),
+    (r"RWIFIS|RSTWFS|RWPS|NMWPS", "Wi-Fi reset/WPS"),
+    (r"RDBL|R[0-9]SET", "reboot/reset"),
+    (r"FCR", "fault counter reset"),
+    (r"IIAI|IDAI", "add/delete input"),
+    (r"CTRL", "exclusive control"),
+    (r"Z[12](MSG|SHC|SIM|EMSG|EPRG)", "on-screen message / IR simulation"),
+    (r"Z1ARC(MEN|PRC|CRP|CLO)", "room correction measurement / test tone"),
+    (r"Z[12](VUP|VDN|PVUP|PVDN|TUP[01]|TDN[01]|LUP|LDN|AUP|ADN)", "volume/tone/level step"),
+]
+_BLOCKED_RE = [(re.compile(rf"^(?:{pattern})"), reason) for pattern, reason in _BLOCKED]
+
+
+def blocked_reason(code: str) -> str | None:
+    """Hvorfor `code` ikke må sendes, eller None hvis den er tilladt."""
+    code = code.strip().upper().rstrip("?;")
+    for rx, reason in _BLOCKED_RE:
+        if rx.match(code):
+            return reason
+    return None
+
+
 def input_commands(count: int) -> list[str]:
     """Koderne for navn og rumkorrektion (ARC) på input 1..count."""
     codes = []
