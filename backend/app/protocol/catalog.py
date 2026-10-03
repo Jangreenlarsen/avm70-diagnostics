@@ -1,12 +1,11 @@
 """Kommandokatalog for Anthem AVM 70 (x40-serien).
 
-Kommandoerne og deres værdi-tabeller stammer fra `anthemav`-biblioteket
-(python-anthemav 1.4.2), der er afprøvet mod x40-enheder. Anthems eget
-protokol-dokument ("MRXx40/AVM90/AVM70 IP/RS-232 Codes") kunne ikke hentes
-automatisk. Værdi-tabellerne er derfor ikke garanteret 1:1 for AVM70, og
-UI'et viser altid den rå værdi ved siden af den afkodede tekst. Probe-
-funktionen (`DeviceService.probe`) afgør empirisk hvilke koder enheden
-faktisk understøtter.
+Værdi-tabellerne følger Anthems officielle x40-protokol
+(docs/anthem/MRX-x40-AVM-70-90-IP-RS-232-v5.md, v5 af 5. aug. 2020).
+Oprindeligt kom de fra `anthemav` (skrevet til x20), og det gav forkert
+afkodning af bl.a. Z1AIC (BUGS.md #4). UI'et viser altid den rå værdi ved
+siden af den afkodede tekst, så en afkodning aldrig skjuler hvad enheden
+faktisk svarede.
 """
 
 import re
@@ -60,8 +59,8 @@ _COMMANDS = [
     Command("EMAC", "Ethernet MAC", SYSTEM, is_mac=True),
     Command("WMAC", "Wi-Fi MAC", SYSTEM, is_mac=True),
     Command("GCTXS", "IP/RS-232 status broadcast", SYSTEM,
-            {"0": "Off", "1": "IP on", "2": "IP and RS-232 on"}, numeric_lookup=True),
-    Command("GCFPB", "Front panel brightness", SYSTEM),
+            {"0": "Off", "1": "IP only", "2": "IP and RS-232"}, numeric_lookup=True),
+    Command("GCFPB", "Front panel brightness", SYSTEM, unit="%"),
     Command("ICN", "Active inputs", SYSTEM),
     # --- Versioner ---
     # Koder og betydning fra AVM70's egen web-UI (http://<avm>/js/merged.min.js,
@@ -87,11 +86,11 @@ _COMMANDS = [
     Command("Z1INP", "Input number", ZONE1),
     # --- Lyd ---
     Command("Z1AIF", "Audio format", AUDIO,
-            {"0": "No audio", "1": "Analog", "2": "PCM", "3": "Dolby",
-             "4": "DSD", "5": "DTS", "6": "Atmos"}, numeric_lookup=True),
+            {"0": "No input", "1": "Analog", "2": "PCM", "3": "Dolby",
+             "4": "DSD", "5": "DTS", "6": "Atmos", "7": "DTS:X"}, numeric_lookup=True),
     Command("Z1AIC", "Input channels", AUDIO,
-            {"0": "No audio", "1": "Other", "2": "Mono (center)", "3": "2 channels",
-             "4": "5.1 channels", "5": "6.1 channels", "6": "7.1 channels", "7": "Atmos"},
+            {"0": "No input", "1": "Other", "2": "Mono (center only)", "3": "2 channels",
+             "4": "5.1 channels", "5": "7.1 channels", "6": "Atmos", "7": "DTS:X"},
             numeric_lookup=True),
     Command("Z1ALM", "Listening mode", AUDIO,
             {"0": "None", "1": "AnthemLogic Cinema", "2": "AnthemLogic Music",
@@ -104,13 +103,13 @@ _COMMANDS = [
     Command("Z1SRT", "Sample rate", AUDIO, unit="kHz"),
     Command("Z1DYN", "Dynamic range (Dolby)", AUDIO,
             {"0": "Normal", "1": "Reduced", "2": "Late Night"}, numeric_lookup=True),
-    Command("Z1DIA", "Dialog normalization", AUDIO, unit="dB"),
+    Command("Z1DIA", "Dialog normalization", AUDIO, {"n": "Not applicable"}, unit="dB"),
     # --- Video ---
     Command("Z1VIR", "Video resolution", VIDEO,
-            {"0": "No video", "1": "Other", "2": "1080p60", "3": "1080p50",
+            {"0": "No input", "1": "Other", "2": "1080p60", "3": "1080p50",
              "4": "1080p24", "5": "1080i60", "6": "1080i50", "7": "720p60",
              "8": "720p50", "9": "576p50", "10": "576i50", "11": "480p60",
-             "12": "480i60", "13": "3D", "14": "4K", "15": "4K50", "16": "4K24"},
+             "12": "480i60", "13": "3D", "14": "4K60", "15": "4K50", "16": "4K24"},
             numeric_lookup=True),
     Command("Z1IRH", "Active horizontal resolution", VIDEO, unit="px"),
     Command("Z1IRV", "Active vertical resolution", VIDEO, unit="px"),

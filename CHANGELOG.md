@@ -4,6 +4,17 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.10.1 build 0011] — 2026-10-03 — Rettet afkodning efter Anthems officielle x40-protokol
+
+BUGS.md #4.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: værditabellerne følger Anthems officielle x40-protokol (v5).
+  - `Z1AIC`: 5 = 7.1, 6 = Atmos, 7 = DTS:X. Før var de forskudt efter x20-tabellen.
+  - `Z1AIF`: 7 = DTS:X. `Z1VIR`: 14 = 4K60. `GCTXS`: "IP only" / "IP and RS-232". `GCFPB` vises i %. `Z1DIA`: `n` = Not applicable. "No input" i stedet for "No audio"/"No video".
+- `backend/app/tools/fake_avm.py`: Atmos = `Z1AIC 6`, DTS-HD MA 7.1 = `Z1AIC 5`
+- `backend/tests/test_protocol.py`: 12 regressionstests mod det officielle dokument
+
 ## [0.10.0 build 0010] — 2026-10-03 — Kommando-kolonne i log mode
 
 FEATURES.md #17 og BUGS.md #3.

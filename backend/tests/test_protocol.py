@@ -198,3 +198,24 @@ def test_version_group_is_static_not_polled():
     assert {"IDQ", "GSN", "IDS", "DSPIDS", "LCDIDS", "NMSVER", "NMHVER", "RVER"} <= version_codes
     assert catalog.VERSION in catalog.STATIC_GROUPS
     assert catalog.VERSION not in catalog.RUNTIME_GROUPS
+
+
+# ------------------------------------------------------------------ officielle x40-værdier (BUGS.md #4)
+
+@pytest.mark.parametrize("code,raw,text", [
+    # docs/anthem/MRX-x40-AVM-70-90-IP-RS-232-v5.md, "System Status"
+    ("Z1AIC", "5", "7.1 channels"),   # anthemav (x20) sagde 6.1
+    ("Z1AIC", "6", "Atmos"),          # anthemav sagde 7.1
+    ("Z1AIC", "7", "DTS:X"),          # anthemav sagde Atmos
+    ("Z1AIF", "0", "No input"),
+    ("Z1AIF", "7", "DTS:X"),          # manglede
+    ("Z1VIR", "14", "4K60"),
+    ("Z1VIR", "15", "4K50"),
+    ("Z1ALM", "3", "Dolby Surround"),
+    ("Z1DIA", "n", "Not applicable"),
+    ("Z1DIA", "-4", "-4 dB"),
+    ("GCTXS", "1", "IP only"),
+    ("GCFPB", "30", "30 %"),
+])
+def test_decoding_follows_the_official_x40_protocol(code, raw, text):
+    assert catalog.decode(code, raw) == text

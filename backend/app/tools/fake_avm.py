@@ -49,7 +49,7 @@ DEFAULT_VALUES = {
     "Z1MUT": "0",
     "Z1INP": "2",
     "Z1AIF": "6",
-    "Z1AIC": "7",
+    "Z1AIC": "6",
     "Z1ALM": "0",
     "Z1AIN": "Dolby TrueHD Atmos",
     "Z1AIR": "48 kHz",
@@ -65,8 +65,8 @@ DEFAULT_VALUES = {
 ZONE2_OFF = {"Z2VOL", "Z2MUT", "Z2INP"}
 
 AUDIO_CYCLE = [
-    {"Z1AIF": "6", "Z1AIC": "7", "Z1AIN": "Dolby TrueHD Atmos", "Z1SRT": "48"},
-    {"Z1AIF": "5", "Z1AIC": "6", "Z1AIN": "DTS-HD MA 7.1", "Z1SRT": "48"},
+    {"Z1AIF": "6", "Z1AIC": "6", "Z1AIN": "Dolby TrueHD Atmos", "Z1SRT": "48"},
+    {"Z1AIF": "5", "Z1AIC": "5", "Z1AIN": "DTS-HD MA 7.1", "Z1SRT": "48"},
     {"Z1AIF": "2", "Z1AIC": "3", "Z1AIN": "PCM 2.0", "Z1SRT": "44.1"},
 ]
 

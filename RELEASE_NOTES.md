@@ -2,6 +2,11 @@
 
 ---
 
+## v0.10.1 — 2026-10-03 — Rettet visning af lydkanaler
+
+- **Rettet**: "Input channels" viste forkert tekst. Atmos blev vist som "7.1 channels", 7.1 som "6.1 channels", og DTS:X som "Atmos". Appen bruger nu Anthems officielle tabel for AVM 70. Den rå værdi stod hele tiden korrekt ved siden af. Gamle rapporter og logfiler kan derfor have forkert kanaltekst.
+- DTS:X genkendes nu som lydformat, og 4K60 vises som "4K60" i stedet for "4K".
+
 ## v0.10.0 — 2026-10-03 — Kommando-kolonne i log mode
 
 - Log mode har fået en kolonne med selve kommandoen og dens retning:
