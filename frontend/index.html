@@ -17,114 +17,145 @@
       <span class="pill" id="conn-pill" data-status="disconnected">Disconnected</span>
       <span class="target" id="conn-target"></span>
     </div>
+    <nav class="pages" aria-label="Pages">
+      <button data-page="overview" aria-current="page">Overview</button>
+      <button data-page="device">Device</button>
+      <button data-page="logs">Logs <span class="rec" id="lm-rec" hidden>● REC</span></button>
+      <button data-page="tools">Tools</button>
+    </nav>
     <div class="actions">
-      <button id="btn-connect" class="primary">Connect</button>
-      <button id="btn-disconnect">Disconnect</button>
-      <button id="btn-refresh" title="Re-query all system and runtime values">Refresh all</button>
-      <button id="btn-report" title="Download a structured text report with all data read from the AVM70 — suitable for sending to Anthem support">⬇ Report</button>
-      <button id="btn-network" title="IP status and Wi-Fi details of the AVM70">🌐 Network</button>
-      <button id="btn-versions" title="All version and identity information from the AVM70">ℹ Versions</button>
-      <button id="btn-setup" title="Communication parameters for the AVM70">⚙ Setup</button>
+      <label class="switch" title="Show the protocol code and raw value under each value">
+        <input type="checkbox" id="show-codes"> Codes
+      </label>
+      <button id="btn-conn" class="primary">Connect</button>
+      <button id="btn-report" title="Save a structured text report with all data read from the AVM70 — suitable for sending to Anthem support">⬇ Report</button>
+      <button id="btn-setup" class="icon" title="Setup — communication, log mode and owner" aria-label="Setup">⚙</button>
     </div>
   </header>
 
   <div class="banner" id="conn-error" hidden></div>
 
   <main>
-    <section class="cards" id="cards"></section>
+    <!-- Overview: hvad sker der nu -->
+    <section class="page" id="page-overview">
+      <div class="tiles" id="tiles"></div>
+      <div class="section-head">
+        <h2>Details</h2>
+        <button id="btn-refresh" class="small" title="Re-query all system and runtime values">Refresh all</button>
+      </div>
+      <div class="cards" id="cards-overview"></div>
+    </section>
 
-    <section class="panel">
-      <nav class="tabs" role="tablist">
-        <button role="tab" data-tab="changelog" aria-selected="true">Change log</button>
-        <button role="tab" data-tab="logmode" aria-selected="false">Log mode <span class="rec" id="lm-rec" hidden>● REC</span></button>
-        <button role="tab" data-tab="log" aria-selected="false">Event log</button>
-        <button role="tab" data-tab="traffic" aria-selected="false">Raw traffic</button>
-        <button role="tab" data-tab="console" aria-selected="false">Console &amp; probe</button>
-      </nav>
+    <!-- Device: identitet, versioner, netværk, inputs, indstillinger, fejl -->
+    <section class="page" id="page-device" hidden>
+      <div class="cards masonry" id="cards-device"></div>
+    </section>
 
-      <div class="tab" id="tab-changelog">
-        <div class="toolbar">
-          <span class="hint" id="cl-status">Starts after the first complete read of the device.</span>
-          <span class="spacer"></span>
-          <button id="cl-save" class="small primary">Save to file</button>
-          <button id="cl-new" class="small" title="Take a new snapshot of all values and clear the logged changes">Start new log</button>
-        </div>
-        <details class="baseline" id="cl-baseline">
-          <summary id="cl-baseline-title">Initial values</summary>
+    <!-- Logs -->
+    <section class="page" id="page-logs" hidden>
+      <div class="panel">
+        <nav class="tabs" role="tablist">
+          <button role="tab" data-tab="changelog" aria-selected="true">Change log</button>
+          <button role="tab" data-tab="logmode" aria-selected="false">Log mode</button>
+          <button role="tab" data-tab="log" aria-selected="false">Events</button>
+          <button role="tab" data-tab="traffic" aria-selected="false">Raw traffic</button>
+        </nav>
+
+        <div class="tab" id="tab-changelog">
+          <div class="toolbar">
+            <span class="hint" id="cl-status">Starts after the first complete read of the device.</span>
+            <span class="spacer"></span>
+            <button id="cl-save" class="small primary">Save to file</button>
+            <button id="cl-new" class="small" title="Take a new snapshot of all values and clear the logged changes">Start new log</button>
+          </div>
+          <details class="baseline" id="cl-baseline">
+            <summary id="cl-baseline-title">Initial values</summary>
+            <div class="scroll">
+              <table class="grid">
+                <thead><tr><th>Group</th><th>Item</th><th>Value</th><th>Code</th></tr></thead>
+                <tbody id="cl-baseline-body"></tbody>
+              </table>
+            </div>
+          </details>
           <div class="scroll">
             <table class="grid">
-              <thead><tr><th>Group</th><th>Item</th><th>Value</th><th>Code</th></tr></thead>
-              <tbody id="cl-baseline-body"></tbody>
+              <thead><tr><th>Time</th><th>Source</th><th>Item</th><th>From</th><th>To</th></tr></thead>
+              <tbody id="cl-body"></tbody>
             </table>
           </div>
-        </details>
-        <div class="scroll">
-          <table class="grid">
-            <thead><tr><th>Time</th><th>Source</th><th>Item</th><th>From</th><th>To</th></tr></thead>
-            <tbody id="cl-body"></tbody>
+        </div>
+
+        <div class="tab" id="tab-logmode" hidden>
+          <div class="toolbar">
+            <button id="lm-toggle" class="small primary">Enable log mode</button>
+            <span class="hint" id="lm-status">Polls every parameter at a fixed interval and logs INIT, then OK or the changes.</span>
+            <span class="spacer"></span>
+            <button id="lm-save" class="small" disabled>Save to file</button>
+            <button id="lm-setup" class="small" title="Change the log poll interval">⚙ Interval</button>
+          </div>
+          <p class="hint" id="lm-file"></p>
+          <label class="hint follow"><input type="checkbox" id="lm-follow" checked> Follow newest</label>
+          <pre class="logmode" id="lm-body"></pre>
+        </div>
+
+        <div class="tab" id="tab-log" hidden>
+          <div class="toolbar">
+            <label><input type="checkbox" id="log-changes-only"> Value changes only</label>
+            <span class="spacer"></span>
+            <button id="log-clear" class="small">Clear view</button>
+          </div>
+          <div class="scroll">
+            <table class="grid">
+              <thead><tr><th>Time</th><th>Type</th><th>Source</th><th>Event</th></tr></thead>
+              <tbody id="log-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tab" id="tab-traffic" hidden>
+          <div class="toolbar">
+            <label><input type="checkbox" id="traffic-hide-poll" checked> Hide polling</label>
+            <label><input type="checkbox" id="traffic-pause"> Pause</label>
+            <span class="spacer"></span>
+            <button id="traffic-clear" class="small">Clear view</button>
+          </div>
+          <pre class="traffic" id="traffic-body"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tools -->
+    <section class="page" id="page-tools" hidden>
+      <div class="panel">
+        <div class="tab">
+          <h2 class="panel-title">Console</h2>
+          <form class="console-form" id="console-form">
+            <input id="console-input" placeholder="Query, e.g. Z1VOL?  IS4IN?  GCTXS?" autocomplete="off" spellcheck="false">
+            <button type="submit" class="primary">Send</button>
+          </form>
+          <p class="hint">Queries only (<code>CODE?</code>) — the app never changes anything on the AVM70. Action commands such as factory reset or firmware update are blocked even as queries.</p>
+          <div id="console-out" class="console-out"></div>
+        </div>
+        <div class="tab tab-split">
+          <div class="toolbar">
+            <h2 class="panel-title">Probe</h2>
+            <span class="hint">Queries every known command and shows which ones the AVM70 supports.</span>
+            <span class="spacer"></span>
+            <button id="btn-probe" class="small">Run probe</button>
+          </div>
+          <table class="grid" id="probe-table" hidden>
+            <thead><tr><th>Code</th><th>Meaning</th><th>Status</th><th>Raw value</th><th>Decoded</th></tr></thead>
+            <tbody id="probe-body"></tbody>
           </table>
         </div>
-      </div>
-
-      <div class="tab" id="tab-logmode" hidden>
-        <div class="toolbar">
-          <button id="lm-toggle" class="small primary">Enable log mode</button>
-          <span class="hint" id="lm-status">Polls every parameter at a fixed interval and logs INIT, then OK or the changes.</span>
-          <span class="spacer"></span>
-          <button id="lm-save" class="small" disabled>Save to file</button>
-          <button id="lm-setup" class="small" title="Change the log poll interval">⚙ Log poll setup</button>
-        </div>
-        <p class="hint" id="lm-file"></p>
-        <label class="hint follow"><input type="checkbox" id="lm-follow" checked> Follow newest</label>
-        <pre class="logmode" id="lm-body"></pre>
-      </div>
-
-      <div class="tab" id="tab-log" hidden>
-        <div class="toolbar">
-          <label><input type="checkbox" id="log-changes-only"> Value changes only</label>
-          <button id="log-clear" class="small">Clear view</button>
-        </div>
-        <div class="scroll">
-          <table class="grid">
-            <thead><tr><th>Time</th><th>Type</th><th>Source</th><th>Event</th></tr></thead>
-            <tbody id="log-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="tab" id="tab-traffic" hidden>
-        <div class="toolbar">
-          <label><input type="checkbox" id="traffic-hide-poll" checked> Hide polling</label>
-          <label><input type="checkbox" id="traffic-pause"> Pause</label>
-          <button id="traffic-clear" class="small">Clear view</button>
-        </div>
-        <pre class="traffic" id="traffic-body"></pre>
-      </div>
-
-      <div class="tab" id="tab-console" hidden>
-        <form class="console-form" id="console-form">
-          <input id="console-input" placeholder="Query, e.g. Z1VOL?  IS4IN?  GCTXS?" autocomplete="off" spellcheck="false">
-          <button type="submit" class="primary">Send</button>
-        </form>
-        <p class="hint">Queries only (<code>CODE?</code>) — the app never changes anything on the AVM70. Action commands such as factory reset or firmware update are blocked even as queries.</p>
-        <div id="console-out" class="console-out"></div>
-
-        <div class="toolbar probe-bar">
-          <button id="btn-probe">Run probe</button>
-          <span class="hint">Queries all known commands and shows which ones the AVM70 supports.</span>
-        </div>
-        <table class="grid" id="probe-table" hidden>
-          <thead><tr><th>Code</th><th>Meaning</th><th>Status</th><th>Raw value</th><th>Decoded</th></tr></thead>
-          <tbody id="probe-body"></tbody>
-        </table>
       </div>
     </section>
   </main>
 
   <dialog id="setup">
     <form id="setup-form" method="dialog">
-      <h2>Setup — AVM70 communication</h2>
-      <p class="hint">Saved locally in <code>backend/data/settings.json</code>. Changing host or port makes the app reconnect.</p>
+      <h2>Setup</h2>
+      <p class="hint">Saved locally. Changing host or port makes the app reconnect.</p>
 
       <fieldset>
         <legend>General</legend>
@@ -183,35 +214,6 @@
         <button type="submit" id="setup-save" class="primary">Save</button>
       </div>
     </form>
-  </dialog>
-
-  <dialog id="versions">
-    <div class="dialog-body">
-      <h2>Versions — AVM70</h2>
-      <p class="hint" id="versions-hint">Read on connect. "Refresh" queries the device again.</p>
-      <dl class="rows version-rows" id="versions-body"></dl>
-      <div class="dialog-actions">
-        <button type="button" id="versions-copy" class="ghost">Copy all</button>
-        <span class="spacer"></span>
-        <button type="button" id="versions-refresh">Refresh</button>
-        <button type="button" id="versions-close" class="primary">Close</button>
-      </div>
-    </div>
-  </dialog>
-
-  <dialog id="network">
-    <div class="dialog-body">
-      <h2>Network — AVM70</h2>
-      <p class="hint" id="network-hint"></p>
-      <p class="hint">While this app is connected it holds the AVM70's only control connection —
-        the Anthem app and ARC room correction cannot connect at the same time.</p>
-      <dl class="rows version-rows" id="network-body"></dl>
-      <div class="dialog-actions">
-        <span class="spacer"></span>
-        <button type="button" id="network-refresh">Refresh</button>
-        <button type="button" id="network-close" class="primary">Close</button>
-      </div>
-    </div>
   </dialog>
 
   <div class="toast" id="toast" hidden></div>

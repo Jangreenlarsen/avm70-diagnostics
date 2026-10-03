@@ -4,6 +4,18 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.16.0 build 0017] — 2026-10-03 — Ryddeligt, kompakt UI
+
+FEATURES.md #23. Kun frontend.
+
+**Filer ændret:**
+- `frontend/index.html`: fire sider (Overview, Device, Logs, Tools) med sidevalg i topbjælken. Topbjælken har kun status, én Connect/Disconnect-knap, ⬇ Report, ⚙ og kontakten "Codes". Versions- og Network-dialogerne er fjernet; de er nu kort på Device-siden
+- `frontend/app.js`:
+  - Overview-felter (`renderTiles`): hovedzone med input-navn, volumen og mute, lyd ("No input signal" markeres rødt når zonen er tændt), listening mode, video, zone 2 og sundhed (hardwarefejl, Wi-Fi, log mode).
+  - Kort pr. side via `PAGE_GROUPS`. Versioner med Copy all/Refresh, netværk og indstillinger i sektioner, inputs som én række pr. input med et "selected"-mærke, og fejlregister med sektioner.
+  - Felterne gentegnes én gang pr. bølge af værdier. Siden huskes i `#`, og "Codes" huskes i localStorage med try/catch.
+- `frontend/styles.css`: sidevalg, statusfelter med farvekant (ok/warn/bad/off), kort-hoveder med handlinger, sektionstitler, kompakte rækker, kolonne-layout på Device-siden (ingen huller), protokolkoder skjult som standard og nedtonet "Zone is off"
+
 ## [0.15.0 build 0016] — 2026-10-03 — Netværksmenu (IP-status + web-API)
 
 FEATURES.md #22.

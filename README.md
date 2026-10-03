@@ -6,6 +6,7 @@ Selvstændig diagnostik-app til Anthem AVM 70-lydprocessoren. Appen viser al sys
 
 Dobbeltklik på **`AVM70Diagnostics.exe`**. Appen åbner i sit eget vindue og kræver ingen Python-installation, kun Edge WebView2-runtime, som følger med Windows 11. Lukkes vinduet, stopper appen og frigiver forbindelsen til AVM70. Der kan kun køre én kopi ad gangen.
 
+- Siderne **Overview**, **Device**, **Logs** og **Tools**. **Codes** viser protokolkoderne under hver værdi.
 - Indstillinger og log: `%LOCALAPPDATA%\AVM70 Diagnostics\`
 - Rapporter (**⬇ Report**) gemmes i Overførsler.
 

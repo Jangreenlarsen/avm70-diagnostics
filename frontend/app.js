@@ -21,10 +21,12 @@ const STATUS_TEXT = {
   connected: "Connected",
 };
 const SOURCE_TEXT = { push: "push", poll: "poll", refresh: "refresh", console: "console", probe: "probe", test: "test" };
-const GROUP_ORDER = ["system", "faults", "inputs", "zone1", "audio", "video", "zone2", "settings"];
+// FEATURES.md #23: hvilke grupper der vises som kort på hvilken side.
+const PAGE_GROUPS = {
+  overview: ["zone1", "audio", "video", "zone2"],
+  device: ["system", "version", "network", "inputs", "settings", "faults"],
+};
 const HARDWARE_FAULT_COUNT = 8;  // FCQ0001-0008 er hardwaretællere (FEATURES.md #21)
-// Grupper der ikke vises som kort på forsiden (har deres egen menu).
-const MENU_GROUPS = new Set(["version", "network"]);
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -92,6 +94,10 @@ const state = {
 
 // ---------------------------------------------------------------- render: connection
 
+function connected() {
+  return Boolean(state.connection && state.connection.status === "connected");
+}
+
 function renderConnection() {
   const c = state.connection;
   if (!c) return;
@@ -99,11 +105,14 @@ function renderConnection() {
   pill.dataset.status = c.status;
   pill.textContent = STATUS_TEXT[c.status] || c.status;
   $("#conn-target").textContent = `${c.host}:${c.port}`;
+  // Én knap: Connect når appen ikke forsøger at forbinde, ellers Disconnect.
   const running = c.status !== "disconnected";
-  $("#btn-connect").disabled = running;
-  $("#btn-disconnect").disabled = !running;
+  const btn = $("#btn-conn");
+  btn.textContent = running ? "Disconnect" : "Connect";
+  btn.classList.toggle("primary", !running);
   $("#btn-refresh").disabled = c.status !== "connected";
   $("#btn-probe").disabled = c.status !== "connected";
+  for (const b of document.querySelectorAll("[data-needs-connection]")) b.disabled = !connected();
 
   const banner = $("#conn-error");
   if (c.last_error && c.status !== "connected") {
@@ -116,30 +125,157 @@ function renderConnection() {
   }
 }
 
-// ---------------------------------------------------------------- render: cards
+// ---------------------------------------------------------------- render: kort
+
+const val = (code) => state.values.get(code);
+const ok = (code) => { const v = val(code); return v && v.status === "ok" && v.raw !== null ? v : null; };
+const txt = (code, fallback = "—") => { const v = ok(code); return v ? (v.raw.trim() === "" ? fallback : v.text) : fallback; };
+
+function cardShell(group, title, tools = []) {
+  const card = el("article", { class: "card", dataset: { group } });
+  const head = el("header", { class: "card-head" }, el("h2", {}, title));
+  if (tools.length) head.append(el("div", { class: "card-actions" }, ...tools));
+  card.append(head);
+  return card;
+}
+
+function rowsList(values) {
+  const dl = el("dl", { class: "rows" });
+  for (const v of values) dl.append(renderRow(v));
+  return dl;
+}
+
+function sectionTitle(text) {
+  return el("div", { class: "rows-section" }, text);
+}
 
 function renderCards() {
-  const host = $("#cards");
-  host.replaceChildren();
-  const byGroup = new Map(GROUP_ORDER.map((g) => [g, []]));
-  for (const v of state.values.values()) {
-    if (MENU_GROUPS.has(v.group)) continue;
-    if (!byGroup.has(v.group)) byGroup.set(v.group, []);
-    byGroup.get(v.group).push(v);
+  for (const [page, groups] of Object.entries(PAGE_GROUPS)) {
+    const host = $(`#cards-${page}`);
+    host.replaceChildren(...groups.map(renderGroupCard).filter(Boolean));
   }
-  for (const [group, values] of byGroup) {
-    const card = el("article", { class: "card", dataset: { group } }, el("h2", {}, state.groups[group] || group));
-    if (group === "inputs") values.sort((a, b) => inputOrder(a.code) - inputOrder(b.code));
-    if (group === "faults") { renderFaultCard(card, values); host.append(card); continue; }
-    if (values.length === 0) {
-      card.append(el("p", { class: "empty" }, group === "inputs" ? "Read once the input count is known" : "No data"));
-    } else {
-      const dl = el("dl", { class: "rows" });
-      for (const v of values) dl.append(renderRow(v));
-      card.append(dl);
-    }
-    host.append(card);
+  renderTiles();
+  renderConnection();
+}
+
+function groupValues(group) {
+  return [...state.values.values()].filter((v) => v.group === group);
+}
+
+function renderGroupCard(group) {
+  const title = state.groups[group] || group;
+  if (group === "faults") return renderFaultCard(cardShell(group, title), groupValues(group));
+  if (group === "version") return renderVersionCard(title);
+  if (group === "network") return renderNetworkCard(title);
+  if (group === "settings") return renderSettingsCard(title);
+  if (group === "inputs") return renderInputsCard(title);
+  const values = groupValues(group);
+  if (group === "inputs") values.sort((a, b) => inputOrder(a.code) - inputOrder(b.code));
+  const card = cardShell(group, title);
+  card.append(values.length ? rowsList(values)
+    : el("p", { class: "empty" }, group === "inputs" ? "Read once the input count is known" : "No data"));
+  return card;
+}
+
+function refreshButton(id, group, message) {
+  const b = el("button", { class: "small", id, "data-needs-connection": "" }, "Refresh");
+  b.disabled = !connected();
+  b.onclick = (e) => action(e.currentTarget, async () => {
+    await api("POST", `/api/refresh?group=${group}`);
+    toast(message);
+  });
+  return b;
+}
+
+function renderVersionCard(title) {
+  const copy = el("button", { class: "small" }, "Copy all");
+  copy.onclick = async () => {
+    try { await copyText(versionsAsText()); toast("Version information copied"); }
+    catch (err) { toast(err.message, true); }
+  };
+  const card = cardShell("version", title, [copy, refreshButton("versions-refresh", "version", "Versions re-queried")]);
+  const dl = el("dl", { class: "rows" });
+  dl.append(sectionTitle("This app"));
+  dl.append(staticRow("AVM70 Diagnostics", appVersion ? `v${appVersion.version} build ${appVersion.build}` : "—"));
+  dl.append(staticRow("System owner", (state.settings && state.settings.owner) || "—"));
+  for (const [section, values] of versionSections()) {
+    if (!values.length) continue;
+    dl.append(sectionTitle(section));
+    for (const v of values) dl.append(renderRow(v));
   }
+  card.append(dl);
+  return card;
+}
+
+function renderNetworkCard(title) {
+  const card = cardShell("network", title, [refreshButton("network-refresh", "network", "Network information re-read")]);
+  const dl = el("dl", { class: "rows" });
+  for (const [section, codes] of NETWORK_SECTIONS) {
+    const values = codes.map(val).filter(Boolean);
+    if (!values.length) continue;
+    dl.append(sectionTitle(section));
+    for (const v of values) dl.append(renderRow(v));
+  }
+  card.append(dl);
+  card.append(el("p", { class: "card-note" },
+    "While connected, this app holds the AVM70's only control connection — the Anthem app and ARC room correction cannot connect at the same time."));
+  return card;
+}
+
+// Indstillingerne i overskuelige sektioner (FEATURES.md #23).
+const SETTINGS_SECTIONS = [
+  ["Power and standby", ["GCCSTBY", "GCSHDMIB", "GCNSPO"]],
+  ["HDMI and CEC", ["GCCECC", "GCCPFC", "GCCTVA"]],
+  ["Volume and inputs at power-on", ["GCMMV", "GCMPOV", "GCMPOI", "GCZ2MMV", "GCZ2POV", "GCZ2POI"]],
+  ["Muting", ["GCHMMO", "GCMLOWS", "GCMDOWS"]],
+  ["Updates", ["GCAU", "GCBU"]],
+  ["Control", ["GCTCP", "GCFIR", "GCRIR", "GCT1C", "GCT1P", "GCT2C", "GCT2P", "GCT3C", "GCT3P"]],
+];
+
+function renderSettingsCard(title) {
+  const card = cardShell("settings", title, [refreshButton("settings-refresh", "settings", "Settings re-read")]);
+  const dl = el("dl", { class: "rows" });
+  const shown = new Set();
+  for (const [section, codes] of SETTINGS_SECTIONS) {
+    const values = codes.map(val).filter(Boolean);
+    if (!values.length) continue;
+    dl.append(sectionTitle(section));
+    for (const v of values) { dl.append(renderRow(v)); shown.add(v.code); }
+  }
+  // Nye indstillinger fra backend, som endnu ikke er placeret i en sektion.
+  const rest = groupValues("settings").filter((v) => !shown.has(v.code));
+  if (rest.length) { dl.append(sectionTitle("Other")); for (const v of rest) dl.append(renderRow(v)); }
+  card.append(dl);
+  return card;
+}
+
+/** Én række pr. input: navn, og rumkorrektion som undertekst. */
+function renderInputsCard(title) {
+  const card = cardShell("inputs", title, [refreshButton("inputs-refresh", "inputs", "Inputs re-read")]);
+  const numbers = [...new Set(groupValues("inputs").map((v) => Number(v.code.match(/^IS(\d+)/)[1])))].sort((a, b) => a - b);
+  if (!numbers.length) {
+    card.append(el("p", { class: "empty" }, "Read once the input count is known"));
+    return card;
+  }
+  const current = ok("Z1INP") ? Number(ok("Z1INP").raw) : null;
+  const dl = el("dl", { class: "rows" });
+  for (const n of numbers) {
+    const name = val(`IS${n}IN`);
+    const arc = val(`IS${n}ARC`);
+    const nameText = name && name.raw !== null ? (name.raw.trim() ? name.text : "(not set)") : "—";
+    const dd = el("dd", {}, el("span", { class: "val" }, nameText));
+    if (n === current) dd.append(" ", el("span", { class: "badge" }, "selected"));
+    if (arc && arc.raw !== null) dd.append(el("span", { class: "sub-val" }, `Room correction: ${arc.text}`));
+    dd.append(el("span", { class: "raw" }, `IS${n}IN / IS${n}ARC`));
+    // id efter navne-koden, så updateValue opdaterer rækken uden at gentegne alt
+    dl.append(el("div", { class: "row", id: `row-IS${n}IN` }, el("dt", {}, `Input ${n}`), dd));
+  }
+  card.append(dl);
+  return card;
+}
+
+function staticRow(label, value) {
+  return el("div", { class: "row" }, el("dt", {}, label), el("dd", {}, el("span", { class: "val" }, value)));
 }
 
 /** Fejlregister-kort: hardwaretællere altid, kommandotællere kun hvis > 0. */
@@ -148,25 +284,23 @@ function renderFaultCard(card, values) {
   const f = state.faults || {};
   const hw = values.slice(0, HARDWARE_FAULT_COUNT);
   const nonzero = values.slice(HARDWARE_FAULT_COUNT).filter((v) => v.raw !== null && v.raw.trim() !== "0" && v.raw.trim() !== "");
-  const head = el("div", { class: "card-tools" },
-    el("span", { class: "hint" }, f.reading ? "Reading…" : f.read_at ? `Read ${fmtTime(f.read_at)}` : f.error || "Read after connecting"),
-    el("button", { class: "small", id: "faults-refresh" }, "Re-read"));
-  card.append(head);
-  if (values.length === 0) {
-    card.append(el("p", { class: "empty" }, f.error || "Not read yet"));
-  } else {
-    const dl = el("dl", { class: "rows" });
-    for (const v of hw) dl.append(renderRow(v));
-    dl.append(el("div", { class: "row sub" }, el("dt", {}, "Command fault counters"),
-      el("dd", {}, el("span", { class: "val" }, `${nonzero.length} of ${values.length - hw.length} not zero`))));
-    for (const v of nonzero) dl.append(renderRow(v));
-    card.append(dl);
-  }
-  card.querySelector("#faults-refresh").onclick = (e) => action(e.currentTarget, async () => {
+  const reread = el("button", { class: "small", id: "faults-refresh" }, "Re-read");
+  reread.disabled = !connected() || f.reading;
+  reread.onclick = (e) => action(e.currentTarget, async () => {
     await api("POST", "/api/faults/refresh");
     toast("Fault counters re-read");
   });
-  card.querySelector("#faults-refresh").disabled = !state.connection || state.connection.status !== "connected" || f.reading;
+  card.querySelector(".card-head").append(el("div", { class: "card-actions" }, reread));
+  card.append(el("p", { class: "card-note" },
+    f.reading ? "Reading…" : f.read_at ? `Read ${fmtTime(f.read_at)}` : f.error || "Read after connecting"));
+  if (values.length === 0) return card;
+  const dl = el("dl", { class: "rows" });
+  dl.append(sectionTitle("Hardware"));
+  for (const v of hw) dl.append(renderRow(v));
+  dl.append(sectionTitle(`Command fault counters — ${nonzero.length} of ${values.length - hw.length} not zero`));
+  for (const v of nonzero) dl.append(renderRow(v));
+  card.append(dl);
+  return card;
 }
 
 function inputOrder(code) {
@@ -181,17 +315,19 @@ function renderRow(v) {
 }
 
 function fillRow(row, v) {
-  const val = el("span", { class: "val" });
+  const value = el("span", { class: "val" });
   if (v.raw === null || v.raw === undefined) {
-    val.textContent = v.status === "unknown" ? "—" : "";
+    value.textContent = v.status === "unknown" ? "—" : "";
   } else {
-    val.textContent = v.text === "" ? "(empty)" : v.text;
+    value.textContent = v.raw.trim() === "" ? "(not set)" : v.text;
   }
-  const dd = el("dd", {}, val);
+  const dd = el("dd", {}, value);
   if (v.status !== "ok" && v.status !== "unknown") {
-    dd.append(" ", el("span", { class: "state" }, v.status_text || v.status));
+    // "Zone is off" er forventet når zonen er slukket — nedtonet, ikke en advarsel.
+    dd.append(" ", el("span", { class: v.status === "zone_off" ? "state quiet" : "state" }, v.status_text || v.status));
   }
-  const rawText = `${v.code}${v.raw !== null && v.raw !== undefined ? " = " + JSON.stringify(v.raw) : ""}`;
+  const rawText = v.code.startsWith("@") ? "device web API"
+    : `${v.code}${v.raw !== null && v.raw !== undefined ? " = " + JSON.stringify(v.raw) : ""}`;
   dd.append(el("span", { class: "raw" }, rawText));
   row.replaceChildren(el("dt", {}, v.label), dd);
   row.classList.toggle("stale", v.status !== "ok" && v.raw !== null);
@@ -201,23 +337,73 @@ function fillRow(row, v) {
   ].filter(Boolean).join("\n");
 }
 
+let tilesTimer = null;
 function updateValue(v) {
   const prev = state.values.get(v.code);
   state.values.set(v.code, v);
-  if (MENU_GROUPS.has(v.group)) {
-    if ($("#versions").open) renderVersions();
-    if ($("#network").open) renderNetwork();
-    return;
+  const row = v.group === "inputs" ? null : document.getElementById(`row-${v.code}`);
+  if (!row) {
+    if (PAGE_GROUPS.overview.includes(v.group) || PAGE_GROUPS.device.includes(v.group)) renderCards();
+  } else {
+    fillRow(row, v);
+    if (prev && prev.raw !== null && prev.raw !== v.raw) {
+      row.classList.remove("flash");
+      void row.offsetWidth; // genstart overgangen
+      row.classList.add("flash");
+      setTimeout(() => row.classList.remove("flash"), 60);
+    }
   }
-  const row = document.getElementById(`row-${v.code}`);
-  if (!row) { renderCards(); return; }
-  fillRow(row, v);
-  if (prev && prev.raw !== null && prev.raw !== v.raw) {
-    row.classList.remove("flash");
-    void row.offsetWidth; // genstart overgangen
-    row.classList.add("flash");
-    setTimeout(() => row.classList.remove("flash"), 60);
-  }
+  // Værdier kommer i bølger (en hel poll-runde); felterne tegnes én gang pr. bølge.
+  clearTimeout(tilesTimer);
+  tilesTimer = setTimeout(renderTiles, 50);
+}
+
+// ---------------------------------------------------------------- overview-felter (FEATURES #23)
+
+function tile(label, main, sub, tone = "") {
+  return el("div", { class: `tile ${tone}` },
+    el("div", { class: "tile-label" }, label),
+    el("div", { class: "tile-main" }, main),
+    el("div", { class: "tile-sub" }, sub || "\u00a0"));
+}
+
+function inputName(zone) {
+  const n = ok(`Z${zone}INP`);
+  if (!n) return "—";
+  const name = ok(`IS${n.raw.trim()}IN`);
+  return name && name.raw.trim() ? name.text : `Input ${n.raw.trim()}`;
+}
+
+function renderTiles() {
+  const tiles = [];
+  // Hovedzone
+  const on = ok("Z1POW") && ok("Z1POW").raw === "1";
+  const muted = ok("Z1MUT") && ok("Z1MUT").raw === "1";
+  tiles.push(tile("Main zone", on ? inputName(1) : txt("Z1POW"),
+    on ? `${txt("Z1VOL")}${muted ? " · MUTED" : ""}` : "", !ok("Z1POW") ? "" : on ? (muted ? "warn" : "ok") : "off"));
+  // Lyd
+  const noAudio = ok("Z1AIF") && ok("Z1AIF").raw.trim() === "0";
+  const audioSub = ["Z1AIC", "Z1SRT", "Z1BDP"].map((c) => ok(c))
+    .filter((v) => v && v.raw.trim() !== "" && v.raw.trim() !== "0").map((v) => v.text).join(" · ");
+  tiles.push(tile("Audio", noAudio ? "No input signal" : txt("Z1AIN", txt("Z1AIF")), noAudio ? "Nothing to decode from the selected source" : audioSub,
+    !ok("Z1AIF") ? "" : noAudio ? (on ? "bad" : "off") : "ok"));
+  tiles.push(tile("Listening mode", txt("Z1ALM"), ok("Z1DYN") ? `Dynamics ${txt("Z1DYN")}` : ""));
+  // Video
+  const noVideo = ok("Z1VIR") && ok("Z1VIR").raw.trim() === "0";
+  const res = ok("Z1IRH") && ok("Z1IRV") && ok("Z1IRH").raw.trim() !== "0" ? `${ok("Z1IRH").raw} × ${ok("Z1IRV").raw}` : "";
+  tiles.push(tile("Video", txt("Z1VIR"), res, !ok("Z1VIR") ? "" : noVideo ? "off" : "ok"));
+  // Zone 2
+  const z2on = ok("Z2POW") && ok("Z2POW").raw === "1";
+  tiles.push(tile("Zone 2", z2on ? inputName(2) : txt("Z2POW"), z2on ? txt("Z2VOL") : "", z2on ? "ok" : "off"));
+  // Sundhed: hardwarefejl, Wi-Fi, log mode
+  const hw = [...state.values.values()].filter((v) => v.group === "faults").sort((a, b) => a.code.localeCompare(b.code))
+    .slice(0, HARDWARE_FAULT_COUNT);
+  const hwFaults = hw.filter((v) => v.status === "ok" && v.raw.trim() !== "0").length;
+  const health = hw.length === 0 ? "—" : hwFaults ? `${hwFaults} hardware fault${hwFaults > 1 ? "s" : ""}` : "No hardware faults";
+  const wifi = ok("@WIFI_QUALITY") ? `Wi-Fi ${txt("@WIFI_QUALITY")}${ok("@WIFI_SIGNAL") ? ` (${txt("@WIFI_SIGNAL")})` : ""}` : "";
+  const rec = state.logmode && state.logmode.active ? "Log mode REC" : "";
+  tiles.push(tile("Health", health, [wifi, rec].filter(Boolean).join(" · "), hw.length === 0 ? "" : hwFaults ? "bad" : "ok"));
+  $("#tiles").replaceChildren(...tiles);
 }
 
 // ---------------------------------------------------------------- render: log
@@ -298,8 +484,6 @@ function applySnapshot(s) {
   renderCards();
   renderLog();
   renderTraffic();
-  if ($("#versions").open) renderVersions();
-  if ($("#network").open) renderNetwork();
 }
 
 function connectEvents() {
@@ -339,8 +523,8 @@ async function action(btn, fn) {
   }
 }
 
-$("#btn-connect").onclick = (e) => action(e.currentTarget, () => api("POST", "/api/connect"));
-$("#btn-disconnect").onclick = (e) => action(e.currentTarget, () => api("POST", "/api/disconnect"));
+$("#btn-conn").onclick = (e) => action(e.currentTarget, () =>
+  api("POST", state.connection && state.connection.status !== "disconnected" ? "/api/disconnect" : "/api/connect"));
 $("#btn-refresh").onclick = (e) => action(e.currentTarget, async () => {
   await api("POST", "/api/refresh");
   toast("All values re-queried");
@@ -492,20 +676,17 @@ form.onsubmit = async (e) => {
   }
 };
 
-// ---------------------------------------------------------------- versionsmenu
+// ---------------------------------------------------------------- versioner og netværk (kort på Device-siden)
 
 let appVersion = null;
 
-/** Rækkerne i versionsmenuen: appen selv, enhedens identitet og alle
- *  koder i "version"-gruppen (i katalogets rækkefølge). */
+/** Versionskortets sektioner (enhedens identitet står i System-kortet). */
 function versionSections() {
-  const pick = (codes) => codes.map((c) => state.values.get(c)).filter(Boolean);
-  const versionValues = [...state.values.values()].filter((v) => v.group === "version");
-  const network = versionValues.filter((v) => /^(NMSVER|NMHVER|RVER|RBD|NMR)$/.test(v.code));
-  const device = versionValues.filter((v) => !network.includes(v));
+  const versionValues = groupValues("version");
+  const module = versionValues.filter((v) => /^(NMSVER|NMHVER|RVER|RBD|NMR)$/.test(v.code));
   return [
-    ["Device", [...pick(["IDM", "GCDN"]), ...device]],
-    ["Network module", [...network, ...pick(["NMST"])]],
+    ["Device", versionValues.filter((v) => !module.includes(v))],
+    ["Network module", module],
   ];
 }
 
@@ -515,38 +696,12 @@ function versionText(v) {
   return v.text;
 }
 
-function renderVersions() {
-  const body = $("#versions-body");
-  const children = [el("div", { class: "section" }, "This app")];
-  children.push(el("div", { class: "row" },
-    el("dt", {}, "AVM70 Diagnostics"),
-    el("dd", {}, el("span", { class: "val" }, appVersion ? `v${appVersion.version} build ${appVersion.build}` : "—")),
-  ));
-  children.push(el("div", { class: "row" },
-    el("dt", {}, "System owner"),
-    el("dd", {}, el("span", { class: "val" }, (state.settings && state.settings.owner) || "—")),
-  ));
-  for (const [title, values] of versionSections()) {
-    children.push(el("div", { class: "section" }, title));
-    for (const v of values) {
-      const dd = el("dd", {}, el("span", { class: "val" }, versionText(v)));
-      if (v.status !== "ok" && v.status !== "unknown" && v.raw !== null) dd.append(" ", el("span", { class: "state" }, v.status_text || v.status));
-      dd.append(el("span", { class: "raw" }, v.code));
-      children.push(el("div", { class: "row" }, el("dt", {}, v.label), dd));
-    }
-  }
-  body.replaceChildren(...children);
-  const c = state.connection;
-  $("#versions-refresh").disabled = !c || c.status !== "connected";
-  $("#versions-hint").textContent = c && c.status === "connected"
-    ? `Read from ${c.host}:${c.port}. "Refresh" queries the device again.`
-    : "Not connected — showing the most recently read values.";
-}
-
 function versionsAsText() {
   const lines = [
     `AVM70 Diagnostics: v${appVersion?.version ?? "?"} build ${appVersion?.build ?? "?"}`,
     `System owner: ${(state.settings && state.settings.owner) || "-"}`,
+    `Model: ${txt("IDM", "-")}`,
+    `Device name: ${txt("GCDN", "-")}`,
   ];
   for (const [title, values] of versionSections()) {
     lines.push("", `[${title}]`);
@@ -556,8 +711,7 @@ function versionsAsText() {
 }
 
 /** Clipboard-API'et findes kun i en "secure context" (https/localhost) —
- *  åbnes appen fra mobilen via http://<pc-ip>:8070, må vi falde tilbage
- *  til det gamle execCommand("copy") via et midlertidigt tekstfelt. */
+ *  ellers falder vi tilbage til execCommand("copy") via et skjult tekstfelt. */
 async function copyText(text) {
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(text);
@@ -565,75 +719,48 @@ async function copyText(text) {
   }
   const ta = el("textarea", { readonly: "", style: "position:fixed;top:0;left:0;opacity:0" });
   ta.value = text;
-  $("#versions").append(ta);
+  document.body.append(ta);
   ta.select();
   ta.setSelectionRange(0, text.length);
-  const ok = document.execCommand("copy");
+  const done = document.execCommand("copy");
   ta.remove();
-  if (!ok) throw new Error("The browser did not allow copying — select the text manually");
+  if (!done) throw new Error("The browser did not allow copying — select the text manually");
 }
-
-$("#btn-versions").onclick = () => {
-  renderVersions();
-  $("#versions").showModal();
-};
-$("#versions-close").onclick = () => $("#versions").close();
-$("#versions-refresh").onclick = (e) => action(e.currentTarget, async () => {
-  await api("POST", "/api/refresh?group=version");
-  renderVersions();
-  toast("Versions re-queried");
-});
-$("#versions-copy").onclick = async () => {
-  try {
-    await copyText(versionsAsText());
-    toast("Version information copied");
-  } catch (err) {
-    toast(err.message, true);
-  }
-};
-
-// ---------------------------------------------------------------- netværksmenu (FEATURES #22)
 
 const NETWORK_SECTIONS = [
   ["Control protocol", ["NMST", "GCIPSTT", "GCIPSTM", "GCIPSTI", "GCIPSTS", "GCIPSTG", "GCIPSDN", "EMAC", "WMAC", "GCTXS"]],
-  ["Wi-Fi (device web API)", ["@NET_STATE", "@WIFI_STATE", "@WIFI_SSID", "@WIFI_BSSID", "@WIFI_IP", "@WIFI_BAND",
+  ["Wi-Fi", ["@NET_STATE", "@WIFI_STATE", "@WIFI_SSID", "@WIFI_BSSID", "@WIFI_IP", "@WIFI_BAND",
     "@WIFI_CHANNEL", "@WIFI_SIGNAL", "@WIFI_QUALITY", "@WIFI_SECURITY", "@WIFI_CREDENTIALS"]],
-  ["Ethernet and other (device web API)", ["@WIRED_CABLE", "@WIRED_STATE", "@WIRED_IP", "@GATEWAYS", "@DNS", "@SOFTAP"]],
+  ["Ethernet and other", ["@WIRED_CABLE", "@WIRED_STATE", "@WIRED_IP", "@GATEWAYS", "@DNS", "@SOFTAP"]],
 ];
 
-function renderNetwork() {
-  const children = [];
-  for (const [title, codes] of NETWORK_SECTIONS) {
-    const values = codes.map((c) => state.values.get(c)).filter(Boolean);
-    if (values.length === 0) continue;
-    children.push(el("div", { class: "section" }, title));
-    for (const v of values) {
-      const dd = el("dd", {}, el("span", { class: "val" }, versionText(v)));
-      if (v.status !== "ok" && v.status !== "unknown" && v.raw !== null) {
-        dd.append(" ", el("span", { class: "state" }, v.status_text || v.status));
-      }
-      dd.append(el("span", { class: "raw" }, v.code.startsWith("@") ? "web API" : v.code));
-      children.push(el("div", { class: "row" }, el("dt", {}, v.label), dd));
-    }
+// ---------------------------------------------------------------- sider og "Codes"-kontakt (FEATURES #23)
+
+const PAGES = ["overview", "device", "logs", "tools"];
+
+function showPage(page) {
+  if (!PAGES.includes(page)) page = "overview";
+  for (const p of PAGES) $(`#page-${p}`).hidden = p !== page;
+  for (const b of document.querySelectorAll(".pages button")) {
+    if (b.dataset.page === page) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
   }
-  $("#network-body").replaceChildren(...children);
-  const c = state.connection;
-  $("#network-refresh").disabled = !c || c.status !== "connected";
-  $("#network-hint").textContent = c && c.status === "connected"
-    ? `Read from ${c.host}. "Refresh" queries the control protocol and the device web API again.`
-    : "Not connected — showing the most recently read values.";
+  if (page === "logs") renderTraffic();
+  if (location.hash !== `#${page}`) history.replaceState(null, "", `#${page}`);
 }
 
-$("#btn-network").onclick = () => {
-  renderNetwork();
-  $("#network").showModal();
+for (const b of document.querySelectorAll(".pages button")) b.onclick = () => showPage(b.dataset.page);
+window.addEventListener("hashchange", () => showPage(location.hash.slice(1)));
+
+function applyShowCodes(on) {
+  document.body.classList.toggle("show-codes", on);
+  $("#show-codes").checked = on;
+}
+$("#show-codes").onchange = (e) => {
+  applyShowCodes(e.currentTarget.checked);
+  try { localStorage.setItem("avm70.showCodes", e.currentTarget.checked ? "1" : "0"); }
+  catch { /* privat vindue/blokeret lager — kontakten virker stadig for denne visning */ }
 };
-$("#network-close").onclick = () => $("#network").close();
-$("#network-refresh").onclick = (e) => action(e.currentTarget, async () => {
-  await api("POST", "/api/refresh?group=network");
-  renderNetwork();
-  toast("Network information re-read");
-});
 
 // ---------------------------------------------------------------- rapport (FEATURES #12)
 
@@ -833,6 +960,11 @@ $("#lm-setup").onclick = () => $("#btn-setup").click();
 // ---------------------------------------------------------------- start
 
 (async () => {
+  let showCodes = false;
+  try { showCodes = localStorage.getItem("avm70.showCodes") === "1"; }
+  catch { /* privat vindue/blokeret lager — standard er skjulte koder */ }
+  applyShowCodes(showCodes);
+  showPage(location.hash.slice(1) || "overview");
   try {
     const info = await api("GET", "/api/info");
     appVersion = info.app;
