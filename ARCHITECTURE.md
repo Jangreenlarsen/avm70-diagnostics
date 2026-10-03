@@ -51,7 +51,7 @@
 - **Pakket tilstand** (`config.FROZEN`): `frontend/` og `version.json` ligger i bundlen (`sys._MEIPASS`). Indstillinger og log ligger i `%LOCALAPPDATA%\AVM70 Diagnostics\`, og en evt. `.env` læses ved siden af exe'en.
 
 ### Lag 1 — Frontend
-- **Ansvar**: Viser systeminfo, runtime-data, hændelseslog, rå trafik, rå-forespørgsel og probe-resultat. Opdateres live via SSE.
+- **Ansvar**: Fire sider (FEATURES.md #23): **Overview** (statusfelter + detaljekort for zoner, lyd og video), **Device** (system, versioner, netværk, inputs, indstillinger, fejlregister), **Logs** (ændringslog, log mode, hændelser, rå trafik) og **Tools** (konsol, probe). Siden huskes i URL'ens `#`. Protokolkoder er skjult bag kontakten "Codes" (localStorage). Opdateres live via SSE.
 - **Filer**: `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`
 - **Regler**: Må kun kalde `/api/*`. Viser altid backends specifikke fejlbesked (`detail`).
 

@@ -2,6 +2,17 @@
 
 ---
 
+## v0.16.0 — 2026-10-03 — Ny, ryddelig brugerflade
+
+- Appen er delt i fire sider:
+  - **Overview** viser hvad der sker nu i store, rolige felter: kilde og volumen, lydformat, listening mode, video, zone 2 og sundhed.
+  - **Device** samler system, versioner, netværk, inputs, indstillinger og fejlregister.
+  - **Logs** har ændringslog, log mode, hændelser og rå trafik.
+  - **Tools** har konsol og probe.
+- Topbjælken er ryddet: status, én Connect/Disconnect-knap, Report og ⚙.
+- Protokolkoderne under hver værdi er skjult. Slå **Codes** til for at se dem, og appen husker valget.
+- Indstillinger er delt i sektioner, og hvert input står på én linje med et mærke ved det valgte input.
+
 ## v0.15.0 — 2026-10-03 — Netværksmenu
 
 - Ny menu **🌐 Network** med AVM70's netværksstatus:
