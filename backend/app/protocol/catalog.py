@@ -15,6 +15,7 @@ SYSTEM = "system"
 VERSION = "version"
 SETTINGS = "settings"
 FAULTS = "faults"
+NETWORK = "network"
 ZONE1 = "zone1"
 AUDIO = "audio"
 VIDEO = "video"
@@ -26,6 +27,7 @@ GROUP_TITLES = {
     VERSION: "Versions",
     SETTINGS: "Settings",
     FAULTS: "Fault counters",
+    NETWORK: "Network",
     ZONE1: "Zone 1",
     AUDIO: "Audio (zone 1)",
     VIDEO: "Video (zone 1)",
@@ -37,7 +39,7 @@ GROUP_TITLES = {
 # ikke under drift og hentes kun ved forbindelse og manuel opdatering.
 RUNTIME_GROUPS = (ZONE1, AUDIO, VIDEO, ZONE2)
 # Hentes ved forbindelse og manuel opdatering (ikke polling).
-STATIC_GROUPS = (SYSTEM, VERSION, SETTINGS)
+STATIC_GROUPS = (SYSTEM, VERSION, SETTINGS, NETWORK)
 
 ON_OFF = {"0": "Off", "1": "On"}
 NO_YES = {"0": "No", "1": "Yes"}
@@ -60,19 +62,50 @@ class Command:
     # som heltal — enheden er ikke konsekvent med antallet af cifre.
     numeric_lookup: bool = False
     is_mac: bool = False
+    # FEATURES.md #22: pseudo-kode ("@...") fra AVM70's web-API, ikke en
+    # protokol-kode — sendes aldrig til AvmClient.
+    web: bool = False
+    # Værdi der svinger fra måling til måling (Wi-Fi-signal i dBm): vises og
+    # rapporteres, men logges ikke som ændring (ændringslog/event-log/log mode).
+    volatile: bool = False
 
 
 _COMMANDS = [
     # --- System ---
     Command("IDM", "Model", SYSTEM),
     Command("GCDN", "Device name", SYSTEM),
-    Command("NMST", "Network connection", SYSTEM),
-    Command("EMAC", "Ethernet MAC", SYSTEM, is_mac=True),
-    Command("WMAC", "Wi-Fi MAC", SYSTEM, is_mac=True),
-    Command("GCTXS", "IP/RS-232 status broadcast", SYSTEM,
-            {"0": "Off", "1": "IP only", "2": "IP and RS-232"}, numeric_lookup=True),
     Command("GCFPB", "Front panel brightness", SYSTEM, unit="%"),
     Command("ICN", "Active inputs", SYSTEM),
+    # --- Netværk (FEATURES.md #22): protokol ---
+    Command("NMST", "Network connection", NETWORK),
+    Command("GCIPSTT", "IP status", NETWORK),
+    Command("GCIPSTM", "IP mode", NETWORK, {"0": "Automatic (DHCP)", "1": "Manual (static)"}),
+    Command("GCIPSTI", "IP address", NETWORK),
+    Command("GCIPSTS", "Subnet mask", NETWORK),
+    Command("GCIPSTG", "Gateway", NETWORK),
+    Command("GCIPSDN", "DNS server", NETWORK),
+    Command("EMAC", "Ethernet MAC", NETWORK, is_mac=True),
+    Command("WMAC", "Wi-Fi MAC", NETWORK, is_mac=True),
+    Command("GCTXS", "IP/RS-232 status broadcast", NETWORK,
+            {"0": "Off", "1": "IP only", "2": "IP and RS-232"}, numeric_lookup=True),
+    # --- Netværk: web-API (pseudo-koder, se app/protocol/webapi.py) ---
+    Command("@NET_STATE", "Network state", NETWORK, web=True),
+    Command("@WIFI_STATE", "Wi-Fi state", NETWORK, web=True),
+    Command("@WIFI_SSID", "Wi-Fi network (SSID)", NETWORK, web=True),
+    Command("@WIFI_BSSID", "Wi-Fi access point (BSSID)", NETWORK, web=True),
+    Command("@WIFI_IP", "Wi-Fi IP address", NETWORK, web=True),
+    Command("@WIFI_BAND", "Wi-Fi band", NETWORK, web=True),
+    Command("@WIFI_CHANNEL", "Wi-Fi channel", NETWORK, web=True),
+    Command("@WIFI_SIGNAL", "Wi-Fi signal", NETWORK, unit="dBm", web=True, volatile=True),
+    Command("@WIFI_QUALITY", "Wi-Fi signal quality", NETWORK, web=True),
+    Command("@WIFI_SECURITY", "Wi-Fi security", NETWORK, web=True),
+    Command("@WIFI_CREDENTIALS", "Wi-Fi credentials", NETWORK, web=True),
+    Command("@WIRED_CABLE", "Ethernet cable", NETWORK, web=True),
+    Command("@WIRED_STATE", "Ethernet state", NETWORK, web=True),
+    Command("@WIRED_IP", "Ethernet IP address", NETWORK, web=True),
+    Command("@GATEWAYS", "Gateway (web API)", NETWORK, web=True),
+    Command("@DNS", "DNS (web API)", NETWORK, web=True),
+    Command("@SOFTAP", "Setup hotspot (soft AP)", NETWORK, web=True),
     # --- Versioner ---
     # Koder og betydning fra AVM70's egen web-UI (http://<avm>/js/merged.min.js,
     # COMMAND-tabellen under "// info" og "// network module").
@@ -163,6 +196,8 @@ _COMMANDS = [
 ]
 
 CATALOG: dict[str, Command] = {c.code: c for c in _COMMANDS}
+PROTOCOL_CODES = [c.code for c in _COMMANDS if not c.web]
+WEB_CODES = [c.code for c in _COMMANDS if c.web]
 
 _INPUT_RE = re.compile(r"^IS(\d+)(IN|ARC)$")
 _NUMBER_RE = re.compile(r"^-?\d+(\.\d+)?$")

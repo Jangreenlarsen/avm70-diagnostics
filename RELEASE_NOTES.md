@@ -2,6 +2,14 @@
 
 ---
 
+## v0.15.0 — 2026-10-03 — Netværksmenu
+
+- Ny menu **🌐 Network** med AVM70's netværksstatus:
+  - IP-status: DHCP eller manuel IP, IP, subnet, gateway og DNS.
+  - Fra enhedens egen web-side: Wi-Fi-netværk, access point, bånd/kanal, signal i dBm og kvalitet, Ethernet-kabel og opsætnings-hotspot.
+- Rapporten viser det hele i netværkssektionen. Ændringsloggen og log mode registrerer skift, fx roaming til et andet access point, faldende signalkvalitet eller ny IP. Det er nyttigt hvis AVM70 igen falder af netværket.
+- Menuen minder om at appen optager AVM70's eneste kontrolforbindelse, så Anthem-appen og ARC-rumkorrektion kan ikke forbinde samtidig.
+
 ## v0.14.0 — 2026-10-03 — Fejlregister
 
 - Nyt kort **Fault counters** med AVM70's eget fejlregister:

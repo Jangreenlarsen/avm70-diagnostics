@@ -23,6 +23,7 @@ ERROR_TEXT = {
     "cannot_execute": "Cannot execute now",
     "zone_off": "Zone is off",
     "timeout": "No response",
+    "unavailable": "Not available",
 }
 
 _ZONE_SUFFIXES = sorted(

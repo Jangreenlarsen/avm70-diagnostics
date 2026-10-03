@@ -45,6 +45,7 @@ class EnvSettings(BaseSettings):
 
     avm_host: str = "10.1.1.7"
     avm_port: int = 14999
+    avm_web_port: int = 80  # AVM70's web-API (FEATURES.md #22)
     poll_interval: float = 2.0
     connect_timeout: float = 5.0
     query_timeout: float = 1.5

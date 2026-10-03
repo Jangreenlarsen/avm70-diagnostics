@@ -4,6 +4,23 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.15.0 build 0016] — 2026-10-03 — Netværksmenu (IP-status + web-API)
+
+FEATURES.md #22.
+
+**Filer tilføjet:**
+- `backend/app/protocol/webapi.py`: henter `GET /api/getData?path=network:info` fra AVM70's web-UI (urllib i tråd, ingen ny afhængighed i exe'en) og oversætter til pseudo-koder: Wi-Fi (tilstand, SSID, BSSID, IP, bånd, kanal, signal, kvalitet, sikkerhed, credentials), Ethernet (kabel, tilstand, IP), gateway, DNS og soft-AP. Felter der mangler, udelades. Læsbare fejl (`WebApiError`)
+- `backend/tests/test_network.py` (18 tests), `backend/tests/conftest.py` (web-API slået fra som standard i tests)
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: ny gruppe `network`. `GCIPSTT/M/I/S/G` og `GCIPSDN` (IP mode 0/1 = Automatic (DHCP)/Manual (static)). `NMST`, MAC'er og `GCTXS` er flyttet fra System. Web-pseudokoder med flag `web` og `volatile` (Wi-Fi-signal i dBm). `PROTOCOL_CODES`/`WEB_CODES`
+- `backend/app/services/device_service.py`: `_read_web()` ved forbindelse, ved opdatering (alt eller `network`) og i hver log mode-runde. Circuit breaker: efter en fejl prøves højst én gang pr. minut, så log mode ikke bremses. Web-værdier får status `unavailable` med årsag, og den sidst kendte værdi bevares. Volatile værdier logges ikke som ændringer (event-log og ændringslog). Protokol-, polling- og probe-lister udelader web-koder. `AVM_WEB_PORT` i `.env`
+- `backend/app/services/logmode.py`: web-værdier har kommando-cellen `HTTP network:info`. Status `unavailable`
+- `backend/app/services/report.py`: netværkssektionen viser kontrolprotokol og web-API hver for sig
+- `backend/app/tools/fake_avm.py`: fake web-API (`--web-port`), svar som på Jans enhed
+- `frontend/index.html`, `app.js`: "🌐 Network"-dialog (kontrolprotokol, Wi-Fi og Ethernet/øvrigt) med "Refresh" og en note om at appen optager den eneste protokolforbindelse
+- Tests der ventede på "Full read", venter nu på at alt er læst (`changelog.started`). Fejlregistret (0.14.0) gjorde dem sporadisk ustabile
+
 ## [0.14.0 build 0015] — 2026-10-03 — Fejlregister
 
 FEATURES.md #21.

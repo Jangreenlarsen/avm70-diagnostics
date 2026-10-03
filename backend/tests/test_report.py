@@ -112,7 +112,7 @@ def test_report_filename(serial, expected):
 async def test_export_endpoint_refreshes_and_returns_text_attachment(api, fake):
     await api.post("/api/connect")
     dev = api.app.state.device
-    await wait_until(lambda: any("Full read" in e["text"] for e in dev.log))
+    await wait_until(lambda: dev.changelog.started)  # alt læst, også fejlregistret
     await api.post("/api/probe")
 
     fake.received.clear()

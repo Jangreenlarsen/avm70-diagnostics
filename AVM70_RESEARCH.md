@@ -90,6 +90,8 @@ Den fulde liste over alle 164 kommandoer står i bilaget nederst.
 
 ## 5. Forslag til næste skridt (prioriteret)
 
+> **Status 2026-10-03**: punkt 1–6 er implementeret i v0.11.0 (spærreliste), v0.12.0 (bitdybde), v0.13.0 (indstillinger), v0.14.0 (fejlregister) og v0.15.0 (netværksmenu, inkl. note om enkelt-forbindelse). Desuden er BUGS.md #4 (forkert `Z1AIC`-afkodning) rettet i v0.10.1 efter det officielle dokument.
+
 1. **Spærreliste i konsollen (sikkerhed).** Backend afviser forespørgsler på kendte handlingskoder: `LDFDS`, `CPYS`, `LOTFS`, `BSC`, `FCR`, `GCIPV*`, `IIAI`, `IDAI`, `CTRL*`, `Z1MSG`, `Z1SHC`, `UPDOTA`, `RSTWFS`, `RWPS`, `RDBL`, `R?SET`, `PRG*`. Det er billigt og forhindrer et uheld med en factory reset.
 2. **Fejlregister i appen.** Hardwaretællerne vises i System, og alle 164 kommer med i rapporten. Ændringer i tællerne logges i log mode. Det er det mest værdifulde nye diagnostiske signal.
 3. **Netværksmenu.** IP-status (`GCIPST*`) samt Wi-Fi-signal, kanal og BSSID fra web-API'et `network:info`. Log mode logger IP- og signalskift, så et netværkstab kan forklares.

@@ -92,7 +92,7 @@
 
 ### Lag 4 — Protokol
 - **Ansvar**: `catalog.py` er kommandokataloget (kode, beskrivelse, gruppe, værdi-opslag) og afkodning. `parser.py` splitter strømmen på `;` og klassificerer svar (værdi, fejlsvar, ukendt). `client.py` er asyncio-TCP-klienten: connect med timeout, læse-løkke, `query()` der matcher svar til forespørgsel, og callbacks for hver rå linje ind/ud og for forbindelsestab.
-- **Filer**: `app/protocol/catalog.py`, `app/protocol/parser.py`, `app/protocol/client.py`
+- **Filer**: `app/protocol/catalog.py`, `app/protocol/parser.py`, `app/protocol/client.py`, `app/protocol/webapi.py` (AVM70's web-API på port 80, kun læsning: `network:info` oversat til pseudo-koder `@...`)
 - **Regler**: Ingen viden om HTTP/SSE eller app-tilstand.
 
 ### Værktøj — Fake AVM70

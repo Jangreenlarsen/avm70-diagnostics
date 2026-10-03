@@ -15,6 +15,7 @@ from app import config
 from app.config import DeviceSettings
 from app.protocol import catalog
 from app.protocol.client import AvmClient, AvmConnectionError, QueryResult
+from app.protocol import webapi
 from app.protocol.parser import ERROR_TEXT, Message
 from app.services.changelog import ChangeLog
 from app.services.logmode import LogSession, next_due
@@ -53,6 +54,9 @@ class ValueState:
 
 
 class DeviceService:
+    DEFAULT_WEB_PORT: int | None = 80  # AVM70's web-API; None = slået fra (bruges af testene)
+    WEB_RETRY_SECONDS = 60.0           # efter en web-fejl prøves højst én gang pr. minut
+
     def __init__(self, settings: DeviceSettings) -> None:
         self.settings = settings
         self._client: AvmClient | None = None
@@ -67,6 +71,10 @@ class DeviceService:
         self._log_next = 0.0   # loop.time() for næste log-cyklus
         # Fejlregister (FEATURES.md #21)
         self.faults = {"count": None, "read_at": None, "error": None, "reading": False}
+        # FEATURES.md #22: .env AVM_WEB_PORT (standard 80); None = slået fra (testene)
+        self.web_port = config.env.avm_web_port if self.DEFAULT_WEB_PORT is not None else None
+        self.web_error: str | None = None
+        self._web_retry_at = 0.0  # loop.time(); circuit breaker efter en web-fejl
         self.values: dict[str, ValueState] = {}
         self.traffic: deque[dict] = deque(maxlen=RING_SIZE)
         self.log: deque[dict] = deque(maxlen=RING_SIZE)
@@ -176,16 +184,17 @@ class DeviceService:
         state.status_text = None
         state.updated_at = ts
         state.source = source
+        volatile = bool((cmd := catalog.lookup(state.code)) and cmd.volatile)
         if previous != raw:
             old_text = catalog.decode(state.code, previous) if previous is not None else None
             state.changed_at = ts
-            if previous is not None and was_ok:
+            if previous is not None and was_ok and not volatile:
                 self._add_log(
                     "change",
                     f"{state.label}: {old_text} → {state.text}",
                     code=state.code, group=state.group, old=previous, new=raw, source=source,
                 )
-        entry = self.changelog.add_value(state.code, state.label, state.group, previous, raw, source, ts)
+        entry = None if volatile else self.changelog.add_value(state.code, state.label, state.group, previous, raw, source, ts)
         if entry is not None:
             self._publish("changelog_entry", entry)
         self._publish("value", asdict(state))
@@ -374,6 +383,7 @@ class DeviceService:
                                  "the next poll shows any changes made while disconnected")
             try:
                 await self._refresh_all("refresh")
+                await self._read_web("refresh", force=True)
                 await self._read_faults("refresh", names=True)
                 self._maybe_start_changelog()
                 self._log_next = asyncio.get_running_loop().time()  # frisk log-cyklus efter (gen)forbindelse
@@ -417,6 +427,43 @@ class DeviceService:
         self._add_log("connection", "Disconnected")
         self._changelog_marker("Disconnected - logging paused")
         self._logmode_marker("Disconnected - polling paused until the app connects again")
+
+    # ------------------------------------------------------------ web-API (FEATURES.md #22)
+
+    async def _read_web(self, origin: str, force: bool = False) -> tuple[dict[str, str] | None, bool]:
+        """Læs netværksdetaljer fra AVM70's web-API. Returnerer (data, forsøgt).
+
+        Fejl vælter aldrig forbindelsen; web-værdierne får status "unavailable"
+        med årsagen. Efter en fejl springes web-API'et over i WEB_RETRY_SECONDS
+        (circuit breaker) — ellers ville et utilgængeligt web-API forsinke
+        hver log mode-runde med op til connect-timeout."""
+        if self.web_port is None:
+            return None, False
+        loop_now = asyncio.get_running_loop().time()
+        if not force and loop_now < self._web_retry_at:
+            return None, False
+        try:
+            data = await webapi.fetch_network_info(self.settings.host, self.web_port,
+                                                   timeout=max(2.0, self.settings.connect_timeout))
+        except webapi.WebApiError as exc:
+            self._web_retry_at = asyncio.get_running_loop().time() + self.WEB_RETRY_SECONDS
+            if self.web_error != str(exc):
+                self._add_log("error", str(exc))
+            self.web_error = str(exc)
+            for code in catalog.WEB_CODES:
+                state = self.values.get(code)
+                if state is not None and state.status != "unavailable":
+                    state.status, state.status_text = "unavailable", str(exc)
+                    state.updated_at, state.source = _now(), origin
+                    self._publish("value", asdict(state))
+            return None, True
+        self._web_retry_at = 0.0
+        self.web_error = None
+        for code, value in data.items():
+            state = self.values.get(code)
+            if state is not None:
+                self._apply_value(state, value, origin)
+        return data, True
 
     # ------------------------------------------------------------ fejlregister (FEATURES.md #21)
 
@@ -486,7 +533,7 @@ class DeviceService:
             digits = "".join(ch for ch in code if ch.isdigit())
             return (int(digits or 0), code.endswith("ARC"))
         inputs = sorted((c for c, v in self.values.items() if v.group == catalog.INPUTS), key=key)
-        return list(catalog.CATALOG) + inputs
+        return list(catalog.PROTOCOL_CODES) + inputs
 
     async def _log_cycle(self) -> None:
         loop = asyncio.get_running_loop()
@@ -496,6 +543,17 @@ class DeviceService:
         icn_before = self.values["ICN"].raw if "ICN" in self.values else None
         codes = self._all_codes() + self._fault_codes_for_cycle(session.counts["cycles"])
         results = await self._query_many(codes, "logpoll")
+        web, attempted = await self._read_web("logpoll")
+        # Web-værdierne indgår i samme sammenligning (undtagen de "volatile").
+        # Sprunget over (slået fra / circuit breaker) = ikke polled denne runde.
+        if attempted:
+            for code in catalog.WEB_CODES:
+                if catalog.CATALOG[code].volatile:
+                    continue
+                if web is not None and code in web:
+                    results.append(QueryResult(code, "ok", web[code]))
+                elif web is None:
+                    results.append(QueryResult(code, "timeout"))
         if session is not self.logmode or not session.active:
             return  # stoppet/genstartet mens cyklussen kørte
         for entry in session.record_cycle(results, ts, loop.time() - t0):
@@ -540,10 +598,10 @@ class DeviceService:
     # ------------------------------------------------------------ forespørgsler
 
     def _runtime_codes(self) -> list[str]:
-        return [c.code for c in catalog.CATALOG.values() if c.group in catalog.RUNTIME_GROUPS]
+        return [c.code for c in catalog.CATALOG.values() if c.group in catalog.RUNTIME_GROUPS and not c.web]
 
     def _group_codes(self, *groups: str) -> list[str]:
-        return [c.code for c in catalog.CATALOG.values() if c.group in groups]
+        return [c.code for c in catalog.CATALOG.values() if c.group in groups and not c.web]
 
     async def _query_many(self, codes: list[str], origin: str) -> list[QueryResult]:
         client = self._client
@@ -587,12 +645,15 @@ class DeviceService:
             raise NotConnectedError("Not connected to AVM70")
         if group is None:
             await self._refresh_all("refresh")
+            await self._read_web("refresh", force=True)
             self._maybe_start_changelog()
         elif group == catalog.INPUTS:
             await self._query_many(["ICN"], "refresh")
             await self._refresh_inputs("refresh")
         else:
             await self._query_many(self._group_codes(group), "refresh")
+            if group == catalog.NETWORK:
+                await self._read_web("refresh", force=True)
 
     async def raw_query(self, code: str) -> dict:
         client = self._client
@@ -611,7 +672,7 @@ class DeviceService:
         self._probe_running = True
         self._add_log("info", "Probe started")
         try:
-            codes = list(catalog.CATALOG) + [c for c, v in self.values.items() if v.group == catalog.INPUTS]
+            codes = list(catalog.PROTOCOL_CODES) + [c for c, v in self.values.items() if v.group == catalog.INPUTS]
             results = await self._query_many(codes, "probe")
         finally:
             self._probe_running = False

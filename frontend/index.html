@@ -22,6 +22,7 @@
       <button id="btn-disconnect">Disconnect</button>
       <button id="btn-refresh" title="Re-query all system and runtime values">Refresh all</button>
       <button id="btn-report" title="Download a structured text report with all data read from the AVM70 — suitable for sending to Anthem support">⬇ Report</button>
+      <button id="btn-network" title="IP status and Wi-Fi details of the AVM70">🌐 Network</button>
       <button id="btn-versions" title="All version and identity information from the AVM70">ℹ Versions</button>
       <button id="btn-setup" title="Communication parameters for the AVM70">⚙ Setup</button>
     </div>
@@ -194,6 +195,21 @@
         <span class="spacer"></span>
         <button type="button" id="versions-refresh">Refresh</button>
         <button type="button" id="versions-close" class="primary">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="network">
+    <div class="dialog-body">
+      <h2>Network — AVM70</h2>
+      <p class="hint" id="network-hint"></p>
+      <p class="hint">While this app is connected it holds the AVM70's only control connection —
+        the Anthem app and ARC room correction cannot connect at the same time.</p>
+      <dl class="rows version-rows" id="network-body"></dl>
+      <div class="dialog-actions">
+        <span class="spacer"></span>
+        <button type="button" id="network-refresh">Refresh</button>
+        <button type="button" id="network-close" class="primary">Close</button>
       </div>
     </div>
   </dialog>

@@ -18,7 +18,10 @@ EOL = "\r\n"
 # Sektion 1-3: eksplicit rækkefølge, så det vigtigste for support står først.
 IDENTIFICATION = ["IDM", "GCDN", "GSN", "IDQ", "IDR", "IDH"]
 FIRMWARE = ["IDS", "DSPIDS", "LCDIDS", "IDB", "NMSVER", "NMHVER", "RVER", "RBD", "NMR"]
-NETWORK = ["NMST", "EMAC", "WMAC", "GCTXS"]
+NETWORK = ["NMST", "GCIPSTT", "GCIPSTM", "GCIPSTI", "GCIPSTS", "GCIPSTG", "GCIPSDN", "EMAC", "WMAC", "GCTXS"]
+NETWORK_WEB = ["@NET_STATE", "@WIFI_STATE", "@WIFI_SSID", "@WIFI_BSSID", "@WIFI_IP", "@WIFI_BAND", "@WIFI_CHANNEL",
+               "@WIFI_SIGNAL", "@WIFI_QUALITY", "@WIFI_SECURITY", "@WIFI_CREDENTIALS", "@WIRED_CABLE",
+               "@WIRED_STATE", "@WIRED_IP", "@GATEWAYS", "@DNS", "@SOFTAP"]
 OTHER_SYSTEM = ["GCFPB", "ICN"]
 STATUS_GROUPS = [("zone1", "Zone 1"), ("audio", "Audio (zone 1)"), ("video", "Video (zone 1)"), ("zone2", "Zone 2")]
 
@@ -126,8 +129,12 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
     out += _value_lines(values, FIRMWARE)
 
     out += _heading(3, "Network")
+    out.append("[Control protocol]")
     out += _value_lines(values, NETWORK)
-    out.append(_field("IP address (as configured in app)", conn["host"]))
+    out.append(_field("Address used by this app", f"{conn['host']}:{conn['port']}"))
+    web_lines = _value_lines(values, NETWORK_WEB)
+    if web_lines:
+        out += ["", "[Device web API - network:info]"] + web_lines
 
     out += _heading(4, "System & inputs")
     out += _value_lines(values, OTHER_SYSTEM)
