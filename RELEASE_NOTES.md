@@ -2,6 +2,45 @@
 
 ---
 
+## v0.15.0 — 2026-10-03 — Netværksmenu
+
+- Ny menu **🌐 Network** med AVM70's netværksstatus:
+  - IP-status: DHCP eller manuel IP, IP, subnet, gateway og DNS.
+  - Fra enhedens egen web-side: Wi-Fi-netværk, access point, bånd/kanal, signal i dBm og kvalitet, Ethernet-kabel og opsætnings-hotspot.
+- Rapporten viser det hele i netværkssektionen. Ændringsloggen og log mode registrerer skift, fx roaming til et andet access point, faldende signalkvalitet eller ny IP. Det er nyttigt hvis AVM70 igen falder af netværket.
+- Menuen minder om at appen optager AVM70's eneste kontrolforbindelse, så Anthem-appen og ARC-rumkorrektion kan ikke forbinde samtidig.
+
+## v0.14.0 — 2026-10-03 — Fejlregister
+
+- Nyt kort **Fault counters** med AVM70's eget fejlregister:
+  - De 8 hardwaretællere: forstærker, strøm, temperatur, ventilator og strømforsyning.
+  - De kommandotællere der ikke står på 0.
+- Registret læses når appen forbinder, og kan læses igen med **Re-read**.
+- Rapporten har en ny sektion 6 med tællerne, læst lige før eksport.
+- Log mode holder øje med hardwaretællerne i hver runde og med alle tællere hver 12. runde, så en ny fejl bliver logget med tidspunkt.
+
+## v0.13.0 — 2026-10-03 — Indstillinger
+
+- Nyt kort **Settings** med de indstillinger der forklarer tænd/sluk-, standby-, CEC- og lydproblemer:
+  - Standby HDMI bypass, Connected standby, No-signal power off
+  - CEC, HDMI audio to TV, Headphone mutes main outputs, mute-regler
+  - Max og power-on volumen og input
+  - Automatiske og beta-opdateringer, IR, TCP-port og 12 V triggere
+- Indstillingerne står også i rapporten (ny sektion 5) og i ændringsloggen, og log mode registrerer hvis de ændrer sig.
+
+## v0.12.0 — 2026-10-03 — Bitdybde
+
+- Lydkortet viser nu **Bit depth** (16/24/32 bit). Den kommer også med i rapport, ændringslog og log mode, så den er nyttig ved fejlsøgning af lyd-dropouts.
+
+## v0.11.0 — 2026-10-03 — Beskyttelse mod farlige kommandoer
+
+- Konsollen og alle andre dele af appen nægter nu at sende AVM70's handlingskommandoer, heller ikke som forespørgsel. Det gælder fx fabriksnulstilling, firmware-opdatering, nulstilling af Wi-Fi og fejltællere, sletning af inputs samt volumen- og testtone-kommandoer. Konsollen forklarer hvorfor.
+
+## v0.10.1 — 2026-10-03 — Rettet visning af lydkanaler
+
+- **Rettet**: "Input channels" viste forkert tekst. Atmos blev vist som "7.1 channels", 7.1 som "6.1 channels", og DTS:X som "Atmos". Appen bruger nu Anthems officielle tabel for AVM 70. Den rå værdi stod hele tiden korrekt ved siden af. Gamle rapporter og logfiler kan derfor have forkert kanaltekst.
+- DTS:X genkendes nu som lydformat, og 4K60 vises som "4K60" i stedet for "4K".
+
 ## v0.10.0 — 2026-10-03 — Kommando-kolonne i log mode
 
 - Log mode har fået en kolonne med selve kommandoen og dens retning:

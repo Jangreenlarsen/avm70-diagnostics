@@ -21,9 +21,10 @@ const STATUS_TEXT = {
   connected: "Connected",
 };
 const SOURCE_TEXT = { push: "push", poll: "poll", refresh: "refresh", console: "console", probe: "probe", test: "test" };
-const GROUP_ORDER = ["system", "inputs", "zone1", "audio", "video", "zone2"];
+const GROUP_ORDER = ["system", "faults", "inputs", "zone1", "audio", "video", "zone2", "settings"];
+const HARDWARE_FAULT_COUNT = 8;  // FCQ0001-0008 er hardwaretællere (FEATURES.md #21)
 // Grupper der ikke vises som kort på forsiden (har deres egen menu).
-const MENU_GROUPS = new Set(["version"]);
+const MENU_GROUPS = new Set(["version", "network"]);
 
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -86,6 +87,7 @@ const state = {
   traffic: [],
   changelog: { started_at: null, baseline: [], entries: [], dropped: 0 },
   logmode: null,
+  faults: {},
 };
 
 // ---------------------------------------------------------------- render: connection
@@ -128,6 +130,7 @@ function renderCards() {
   for (const [group, values] of byGroup) {
     const card = el("article", { class: "card", dataset: { group } }, el("h2", {}, state.groups[group] || group));
     if (group === "inputs") values.sort((a, b) => inputOrder(a.code) - inputOrder(b.code));
+    if (group === "faults") { renderFaultCard(card, values); host.append(card); continue; }
     if (values.length === 0) {
       card.append(el("p", { class: "empty" }, group === "inputs" ? "Read once the input count is known" : "No data"));
     } else {
@@ -137,6 +140,33 @@ function renderCards() {
     }
     host.append(card);
   }
+}
+
+/** Fejlregister-kort: hardwaretællere altid, kommandotællere kun hvis > 0. */
+function renderFaultCard(card, values) {
+  values.sort((a, b) => a.code.localeCompare(b.code));
+  const f = state.faults || {};
+  const hw = values.slice(0, HARDWARE_FAULT_COUNT);
+  const nonzero = values.slice(HARDWARE_FAULT_COUNT).filter((v) => v.raw !== null && v.raw.trim() !== "0" && v.raw.trim() !== "");
+  const head = el("div", { class: "card-tools" },
+    el("span", { class: "hint" }, f.reading ? "Reading…" : f.read_at ? `Read ${fmtTime(f.read_at)}` : f.error || "Read after connecting"),
+    el("button", { class: "small", id: "faults-refresh" }, "Re-read"));
+  card.append(head);
+  if (values.length === 0) {
+    card.append(el("p", { class: "empty" }, f.error || "Not read yet"));
+  } else {
+    const dl = el("dl", { class: "rows" });
+    for (const v of hw) dl.append(renderRow(v));
+    dl.append(el("div", { class: "row sub" }, el("dt", {}, "Command fault counters"),
+      el("dd", {}, el("span", { class: "val" }, `${nonzero.length} of ${values.length - hw.length} not zero`))));
+    for (const v of nonzero) dl.append(renderRow(v));
+    card.append(dl);
+  }
+  card.querySelector("#faults-refresh").onclick = (e) => action(e.currentTarget, async () => {
+    await api("POST", "/api/faults/refresh");
+    toast("Fault counters re-read");
+  });
+  card.querySelector("#faults-refresh").disabled = !state.connection || state.connection.status !== "connected" || f.reading;
 }
 
 function inputOrder(code) {
@@ -176,6 +206,7 @@ function updateValue(v) {
   state.values.set(v.code, v);
   if (MENU_GROUPS.has(v.group)) {
     if ($("#versions").open) renderVersions();
+    if ($("#network").open) renderNetwork();
     return;
   }
   const row = document.getElementById(`row-${v.code}`);
@@ -259,6 +290,7 @@ function applySnapshot(s) {
   state.log = s.log;
   state.traffic = s.traffic;
   state.changelog = s.changelog || state.changelog;
+  state.faults = s.faults || {};
   mergeLogmode(s.logmode || null);
   renderConnection();
   renderChangelog();
@@ -267,6 +299,7 @@ function applySnapshot(s) {
   renderLog();
   renderTraffic();
   if ($("#versions").open) renderVersions();
+  if ($("#network").open) renderNetwork();
 }
 
 function connectEvents() {
@@ -280,6 +313,7 @@ function connectEvents() {
   es.addEventListener("changelog_entry", (e) => addChangelogEntry(JSON.parse(e.data)));
   es.addEventListener("logmode", (e) => { mergeLogmode(JSON.parse(e.data)); renderLogmode(); });
   es.addEventListener("logmode_line", (e) => addLogmodeLine(JSON.parse(e.data)));
+  es.addEventListener("faults", (e) => { state.faults = JSON.parse(e.data); renderCards(); });
   es.addEventListener("logmode_counts", (e) => {
     if (state.logmode) { state.logmode.counts = JSON.parse(e.data); renderLogmodeStatus(); }
   });
@@ -557,6 +591,49 @@ $("#versions-copy").onclick = async () => {
     toast(err.message, true);
   }
 };
+
+// ---------------------------------------------------------------- netværksmenu (FEATURES #22)
+
+const NETWORK_SECTIONS = [
+  ["Control protocol", ["NMST", "GCIPSTT", "GCIPSTM", "GCIPSTI", "GCIPSTS", "GCIPSTG", "GCIPSDN", "EMAC", "WMAC", "GCTXS"]],
+  ["Wi-Fi (device web API)", ["@NET_STATE", "@WIFI_STATE", "@WIFI_SSID", "@WIFI_BSSID", "@WIFI_IP", "@WIFI_BAND",
+    "@WIFI_CHANNEL", "@WIFI_SIGNAL", "@WIFI_QUALITY", "@WIFI_SECURITY", "@WIFI_CREDENTIALS"]],
+  ["Ethernet and other (device web API)", ["@WIRED_CABLE", "@WIRED_STATE", "@WIRED_IP", "@GATEWAYS", "@DNS", "@SOFTAP"]],
+];
+
+function renderNetwork() {
+  const children = [];
+  for (const [title, codes] of NETWORK_SECTIONS) {
+    const values = codes.map((c) => state.values.get(c)).filter(Boolean);
+    if (values.length === 0) continue;
+    children.push(el("div", { class: "section" }, title));
+    for (const v of values) {
+      const dd = el("dd", {}, el("span", { class: "val" }, versionText(v)));
+      if (v.status !== "ok" && v.status !== "unknown" && v.raw !== null) {
+        dd.append(" ", el("span", { class: "state" }, v.status_text || v.status));
+      }
+      dd.append(el("span", { class: "raw" }, v.code.startsWith("@") ? "web API" : v.code));
+      children.push(el("div", { class: "row" }, el("dt", {}, v.label), dd));
+    }
+  }
+  $("#network-body").replaceChildren(...children);
+  const c = state.connection;
+  $("#network-refresh").disabled = !c || c.status !== "connected";
+  $("#network-hint").textContent = c && c.status === "connected"
+    ? `Read from ${c.host}. "Refresh" queries the control protocol and the device web API again.`
+    : "Not connected — showing the most recently read values.";
+}
+
+$("#btn-network").onclick = () => {
+  renderNetwork();
+  $("#network").showModal();
+};
+$("#network-close").onclick = () => $("#network").close();
+$("#network-refresh").onclick = (e) => action(e.currentTarget, async () => {
+  await api("POST", "/api/refresh?group=network");
+  renderNetwork();
+  toast("Network information re-read");
+});
 
 // ---------------------------------------------------------------- rapport (FEATURES #12)
 

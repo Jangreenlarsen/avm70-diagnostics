@@ -42,6 +42,7 @@ STATUS_TEXT = {
     "out_of_range": "out of range",
     "cannot_execute": "cannot execute now",
     "zone_off": "zone is off",
+    "unavailable": "not available",
 }
 
 
@@ -69,7 +70,10 @@ def _label(code: str) -> str:
 
 
 def command_cell(direction: str, command: str) -> str:
-    """"POLL Z1AIF?" / "PUSH Z1AIF5" — afkortet så kolonnen holder bredden."""
+    """"POLL Z1AIF?" / "PUSH Z1AIF5" — afkortet så kolonnen holder bredden.
+    Web-API-værdier (pseudo-kode "@...") vises som "HTTP network:info"."""
+    if command.startswith("@"):
+        return "HTTP network:info"
     if len(command) > CMD_MAX:
         command = command[: CMD_MAX - 3] + "..."
     return f"{direction} {command}"
@@ -173,7 +177,7 @@ class LogSession:
         out: list[dict] = []
 
         if not self.initialized:
-            detail = [f"{command_cell('POLL', c + '?'):<{CMD_WIDTH}}"
+            detail = [f"{command_cell('POLL', c if c.startswith('@') else c + '?'):<{CMD_WIDTH}}"
                       f"{_label(c)} {'.' * max(3, 38 - len(_label(c)))} {_shown(v, c)}"
                       for c, v in polled.items()]
             out.append(self._add("INIT", f"{len(polled)} parameters", ts, detail, cmd=f"POLL {total} commands"))
@@ -189,11 +193,11 @@ class LogSession:
             old = self.last.get(code)
             if old is None:
                 out.append(self._add("NEW", f"{_label(code)} [{code}]: {_shown(value, code)}", ts,
-                                     cmd=command_cell("POLL", code + "?")))
+                                     cmd=command_cell("POLL", code if code.startswith("@") else code + "?")))
                 self.counts["changes"] += 1
             elif old != value:
                 out.append(self._add("CHANGE", self._change_text(code, old, value), ts,
-                                     cmd=command_cell("POLL", code + "?")))
+                                     cmd=command_cell("POLL", code if code.startswith("@") else code + "?")))
                 self.counts["changes"] += 1
             self.last[code] = value
 

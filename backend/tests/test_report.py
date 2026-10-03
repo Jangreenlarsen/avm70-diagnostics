@@ -46,8 +46,8 @@ SNAP = _snapshot([
 def test_report_has_all_sections_in_order_and_crlf():
     text = report.build_report(SNAP, {"version": "0.5.0", "build": "0005"}, NOW, refreshed=True)
     headings = ["1. DEVICE IDENTIFICATION", "2. FIRMWARE / VERSIONS", "3. NETWORK", "4. SYSTEM & INPUTS",
-                "5. CURRENT STATUS", "6. COMMAND SUPPORT (PROBE)", "7. EVENT LOG", "8. RAW PROTOCOL TRAFFIC",
-                "9. APP SETTINGS", "END OF REPORT"]
+                "5. DEVICE SETTINGS", "6. FAULT COUNTERS", "7. CURRENT STATUS", "8. COMMAND SUPPORT (PROBE)",
+                "9. EVENT LOG", "10. RAW PROTOCOL TRAFFIC", "11. APP SETTINGS", "END OF REPORT"]
     positions = [text.index(h) for h in headings]
     assert positions == sorted(positions)
     assert "\r\n" in text and "\n" not in text.replace("\r\n", "")
@@ -112,7 +112,7 @@ def test_report_filename(serial, expected):
 async def test_export_endpoint_refreshes_and_returns_text_attachment(api, fake):
     await api.post("/api/connect")
     dev = api.app.state.device
-    await wait_until(lambda: any("Full read" in e["text"] for e in dev.log))
+    await wait_until(lambda: dev.changelog.started)  # alt læst, også fejlregistret
     await api.post("/api/probe")
 
     fake.received.clear()

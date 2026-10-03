@@ -198,3 +198,82 @@ def test_version_group_is_static_not_polled():
     assert {"IDQ", "GSN", "IDS", "DSPIDS", "LCDIDS", "NMSVER", "NMHVER", "RVER"} <= version_codes
     assert catalog.VERSION in catalog.STATIC_GROUPS
     assert catalog.VERSION not in catalog.RUNTIME_GROUPS
+
+
+# ------------------------------------------------------------------ officielle x40-værdier (BUGS.md #4)
+
+@pytest.mark.parametrize("code,raw,text", [
+    # docs/anthem/MRX-x40-AVM-70-90-IP-RS-232-v5.md, "System Status"
+    ("Z1AIC", "5", "7.1 channels"),   # anthemav (x20) sagde 6.1
+    ("Z1AIC", "6", "Atmos"),          # anthemav sagde 7.1
+    ("Z1AIC", "7", "DTS:X"),          # anthemav sagde Atmos
+    ("Z1AIF", "0", "No input"),
+    ("Z1AIF", "7", "DTS:X"),          # manglede
+    ("Z1VIR", "14", "4K60"),
+    ("Z1VIR", "15", "4K50"),
+    ("Z1ALM", "3", "Dolby Surround"),
+    ("Z1DIA", "n", "Not applicable"),
+    ("Z1DIA", "-4", "-4 dB"),
+    ("GCTXS", "1", "IP only"),
+    ("GCFPB", "30", "30 %"),
+    ("Z1BDP", "24", "24 bit"),       # FEATURES.md #19
+    ("Z1BDP", "0", "No input"),
+])
+def test_decoding_follows_the_official_x40_protocol(code, raw, text):
+    assert catalog.decode(code, raw) == text
+
+
+# ------------------------------------------------------------------ spærreliste (FEATURES.md #18)
+
+@pytest.mark.parametrize("code", [
+    "LDFDS", "LOTFS", "CPYS01", "BSC1", "PRGS21", "PRUID0", "UPDOTA", "UPDUSB", "CKFUPD1",
+    "GCIPV1A", "GCIPV2I", "RWIFIS", "RSTWFS", "RWPS", "NMWPS", "RDBL", "R1SET", "FCR0001",
+    "IIAI", "IDAI3", "CTRL01", "Z1MSG0", "Z1SHC", "Z1SIM", "Z2SIM", "Z1ARCCRP", "Z1ARCMEN",
+    "Z1VUP", "Z2VDN", "Z1PVUP", "Z1TUP0", "Z1LDN", "Z1AUP",
+])
+def test_action_commands_are_blocked(code):
+    assert catalog.blocked_reason(code) is not None
+    assert catalog.blocked_reason(code.lower() + "?") is not None   # også med ? og små bogstaver
+
+
+@pytest.mark.parametrize("code", ["FCC", "FCN0001", "FCQ0001", "Z1ARCVAL", "GCIPSTI", "GCIPSTM",
+                                  "Z1VOL", "Z1PVOL", "IS1IN", "IS12AIJ", "GCTXS", "GCSHDMIB", "Z1BDP"])
+def test_read_codes_are_allowed(code):
+    assert catalog.blocked_reason(code) is None
+
+
+def test_no_catalog_code_is_blocked():
+    assert [c for c in catalog.CATALOG if catalog.blocked_reason(c)] == []
+
+
+async def test_blocked_code_is_never_sent_to_the_device(fake):
+    c = _client(fake.port)
+    await c.connect()
+    try:
+        with pytest.raises(ValueError, match="factory reset command on the AVM70 and is blocked"):
+            await c.query("LDFDS")
+    finally:
+        await c.close()
+    assert fake.received == []
+
+
+# ------------------------------------------------------------------ settings-gruppen (FEATURES.md #20)
+
+@pytest.mark.parametrize("code,raw,text", [
+    ("GCSHDMIB", "0", "Off"), ("GCSHDMIB", "1", "Last used"), ("GCSHDMIB", "2", "HDMI 1"), ("GCSHDMIB", "8", "HDMI 7"),
+    ("GCCSTBY", "1", "Enabled"),
+    ("GCNSPO", "3", "1 hour"), ("GCNSPO", "7", "Never"),
+    ("GCCECC", "1", "On"), ("GCCPFC", "0", "Disabled"), ("GCCTVA", "0", "Off"),
+    ("GCHMMO", "1", "Yes"),
+    ("GCMLOWS", "0", "None"), ("GCMLOWS", "8", "HDMI ARC"), ("GCMDOWS", "14", "Analog 1"), ("GCMDOWS", "18", "Phono (MM)"),
+    ("GCMMV", "3.5", "3.5 dB"), ("GCMPOV", "0", "Last used"), ("GCMPOV", "-30.0", "-30.0 dB"),
+    ("GCBU", "1", "Yes"),
+    ("GCT1P", "3", "Main or Zone 2"), ("GCT2C", "1", "RS-232/IP"),
+])
+def test_settings_decoding_follows_the_official_protocol(code, raw, text):
+    assert catalog.decode(code, raw) == text
+    assert catalog.CATALOG[code].group == catalog.SETTINGS
+
+
+def test_settings_are_read_on_connect_not_polled():
+    assert catalog.SETTINGS in catalog.STATIC_GROUPS and catalog.SETTINGS not in catalog.RUNTIME_GROUPS

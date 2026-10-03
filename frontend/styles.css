@@ -171,6 +171,8 @@ main { padding: 16px; display: grid; gap: 16px; }
 .logmode .k-connection, .logmode .k-note, .logmode .k-stopped { color: var(--muted); font-style: italic; }
 .logmode .k-init { font-weight: 600; }
 .logmode .detail { color: var(--muted); }
+.card-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--border); }
+.row.sub { background: var(--surface-2); }
 .probe-bar { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
 .hint { color: var(--muted); font-size: 12px; margin: 6px 0; }
 

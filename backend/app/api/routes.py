@@ -125,6 +125,10 @@ async def query(request: Request, body: QueryBody) -> dict:
         raise HTTPException(400, "Only queries (CODE?) are allowed — the app is read-only")
     if not _QUERY_RE.match(command):
         raise HTTPException(400, "Invalid command — only letters and digits followed by ?, e.g. Z1VOL?")
+    reason = catalog.blocked_reason(command)
+    if reason is not None:
+        raise HTTPException(400, f"{command[:-1]} is a {reason} command on the AVM70 and is blocked — "
+                                 "the app is read-only and never sends it, not even as a query")
     try:
         return await service(request).raw_query(command[:-1])
     except NotConnectedError as exc:
@@ -152,6 +156,8 @@ async def export(request: Request) -> Response:
     if dev.connected:
         try:
             await dev.refresh()
+            if dev.faults["count"] and not dev.faults["reading"]:
+                await dev.refresh_faults()  # friske tællere til support
             refreshed = True
         except Exception as exc:  # noqa: BLE001 — eksporten skal lykkes med de kendte værdier; fejlen står i rapporten
             refresh_error = str(exc) or type(exc).__name__
@@ -165,6 +171,24 @@ async def export(request: Request) -> Response:
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/faults")
+async def get_faults(request: Request) -> dict:
+    """Fejlregister (FEATURES.md #21): metadata + alle kendte tællere."""
+    dev = service(request)
+    counters = [asdict(v) for v in dev.values.values() if v.group == catalog.FAULTS]
+    return {**dev.faults, "hardware": list(catalog.HARDWARE_FAULTS), "counters": counters}
+
+
+@router.post("/faults/refresh")
+async def refresh_faults(request: Request) -> dict:
+    try:
+        return await service(request).refresh_faults()
+    except NotConnectedError as exc:
+        raise HTTPException(409, str(exc)) from None
+    except BusyError as exc:
+        raise HTTPException(409, str(exc)) from None
 
 
 @router.get("/changelog")

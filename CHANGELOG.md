@@ -4,6 +4,82 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.15.0 build 0016] — 2026-10-03 — Netværksmenu (IP-status + web-API)
+
+FEATURES.md #22.
+
+**Filer tilføjet:**
+- `backend/app/protocol/webapi.py`: henter `GET /api/getData?path=network:info` fra AVM70's web-UI (urllib i tråd, ingen ny afhængighed i exe'en) og oversætter til pseudo-koder: Wi-Fi (tilstand, SSID, BSSID, IP, bånd, kanal, signal, kvalitet, sikkerhed, credentials), Ethernet (kabel, tilstand, IP), gateway, DNS og soft-AP. Felter der mangler, udelades. Læsbare fejl (`WebApiError`)
+- `backend/tests/test_network.py` (18 tests), `backend/tests/conftest.py` (web-API slået fra som standard i tests)
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: ny gruppe `network`. `GCIPSTT/M/I/S/G` og `GCIPSDN` (IP mode 0/1 = Automatic (DHCP)/Manual (static)). `NMST`, MAC'er og `GCTXS` er flyttet fra System. Web-pseudokoder med flag `web` og `volatile` (Wi-Fi-signal i dBm). `PROTOCOL_CODES`/`WEB_CODES`
+- `backend/app/services/device_service.py`: `_read_web()` ved forbindelse, ved opdatering (alt eller `network`) og i hver log mode-runde. Circuit breaker: efter en fejl prøves højst én gang pr. minut, så log mode ikke bremses. Web-værdier får status `unavailable` med årsag, og den sidst kendte værdi bevares. Volatile værdier logges ikke som ændringer (event-log og ændringslog). Protokol-, polling- og probe-lister udelader web-koder. `AVM_WEB_PORT` i `.env`
+- `backend/app/services/logmode.py`: web-værdier har kommando-cellen `HTTP network:info`. Status `unavailable`
+- `backend/app/services/report.py`: netværkssektionen viser kontrolprotokol og web-API hver for sig
+- `backend/app/tools/fake_avm.py`: fake web-API (`--web-port`), svar som på Jans enhed
+- `frontend/index.html`, `app.js`: "🌐 Network"-dialog (kontrolprotokol, Wi-Fi og Ethernet/øvrigt) med "Refresh" og en note om at appen optager den eneste protokolforbindelse
+- Tests der ventede på "Full read", venter nu på at alt er læst (`changelog.started`). Fejlregistret (0.14.0) gjorde dem sporadisk ustabile
+
+## [0.14.0 build 0015] — 2026-10-03 — Fejlregister
+
+FEATURES.md #21.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: `FAULTS`-gruppe og dynamiske koder `FCQ<4 hex>`. Etiketter efter navnet fra `FCN`: hardwaretællere som fx "Thermal fault (PRITHERMAL)", øvrige som "Command Z1AIF faults". `HARDWARE_FAULTS`, `fault_codes()`, `FAULT_NAMES`
+- `backend/app/protocol/parser.py`: `FCQ`/`FCN`-svar
+- `backend/app/services/device_service.py`: `_read_faults()` ved forbindelse (navne + tællere). Fejl i registret vælter aldrig forbindelsen. `refresh_faults()`. Log mode læser hardwaretællerne hver runde og alle hver 12. runde. Ændringsloggen starter først når også fejlregistret er læst (ellers ville tællerne stå som "first value"). Nyt SSE-event `faults`
+- `backend/app/api/routes.py`: `GET /api/faults`, `POST /api/faults/refresh`. Rapport-eksporten genlæser tællerne
+- `backend/app/services/report.py`: ny sektion "6. Fault counters" (hardware + ikke-nul kommandotællere). Efterfølgende sektioner er omnummereret (7–11)
+- `backend/app/tools/fake_avm.py`: 10 fejltællere (8 hardware + `Z1AIF`=3, `IS`=6)
+- `frontend/app.js`, `styles.css`: kortet "Fault counters" med tidspunkt og "Re-read"
+- `backend/tests/test_faults.py`: 10 tests (parser, etiketter, spærret `FCR`, læsning ved forbindelse før ændringsloggen, manglende register, log mode-udvalg, stigende hardwaretæller logges, API og rapport)
+
+## [0.13.0 build 0014] — 2026-10-03 — Drift- og standby-indstillinger
+
+FEATURES.md #20.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: ny statisk gruppe `settings` med 26 koder og værditabeller fra den officielle protokol: `GCSHDMIB`, `GCCSTBY`, `GCNSPO`, `GCCECC`, `GCCPFC`, `GCCTVA`, `GCHMMO`, `GCMLOWS`, `GCMDOWS`, `GCMMV`, `GCMPOV`, `GCMPOI`, `GCZ2MMV`, `GCZ2POV`, `GCZ2POI`, `GCAU` (kun kendt fra web-UI), `GCBU`, `GCFIR`, `GCRIR`, `GCTCP` og `GCT1C`–`GCT3P`
+- `backend/app/services/report.py`: ny sektion "5. Device settings". Efterfølgende sektioner er omnummereret (6–10)
+- `backend/app/services/changelog.py`: settings indgår i initialværdierne
+- `backend/app/tools/fake_avm.py`: settings-værdier som på Jans enhed
+- `frontend/app.js`: "Settings"-kort på forsiden
+- Tests: 22 nye (afkodning efter den officielle tabel og statisk gruppe). Log mode-testen tæller nu parametre ud fra kataloget
+
+**Bemærk**: log mode poller nu 75 parametre pr. runde (ca. 3 s på den rigtige enhed). Standard-intervallet på 5 s holder, men intervaller under ca. 3 s vil give noten "poll took longer than the interval".
+
+## [0.12.0 build 0013] — 2026-10-03 — Lyd-bitdybde
+
+FEATURES.md #19.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: `Z1BDP` "Bit depth" i lydgruppen (enhed "bit", 0 = No input)
+- `backend/app/tools/fake_avm.py`: `Z1BDP` = 24
+- `backend/tests/`: afkodningstests. Log mode tæller nu 49 parametre
+
+## [0.11.0 build 0012] — 2026-10-03 — Spærreliste for handlingskoder
+
+FEATURES.md #18.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: `blocked_reason()` med en spærreliste bygget fra Anthems officielle x40-protokol ("Set only"-kommandoer og handlinger): fabriksnulstilling, kopiér/indlæs indstillinger, firmware-programmering/-opdatering, netværk og Wi-Fi, fejltæller-nulstilling, input tilføj/slet, eksklusiv kontrol, beskeder og IR-simulering, ARC-måling og testtoner, volumen-/tone-/niveau-trin
+- `backend/app/protocol/client.py`: `query()` nægter spærrede koder (forsvar i dybden, så det også gælder probe og fremtidige veje)
+- `backend/app/api/routes.py`: `/api/query` giver en `400` med forklaring
+- `frontend/index.html`: hjælpeteksten i konsollen nævner spærringen
+- Tests: 50 nye (alle spærrede koder også med `?` og små bogstaver, tilladte læse-koder, ingen katalog-kode spærret, spærret kode når aldrig fake-enheden, API-besked)
+
+## [0.10.1 build 0011] — 2026-10-03 — Rettet afkodning efter Anthems officielle x40-protokol
+
+BUGS.md #4.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: værditabellerne følger Anthems officielle x40-protokol (v5).
+  - `Z1AIC`: 5 = 7.1, 6 = Atmos, 7 = DTS:X. Før var de forskudt efter x20-tabellen.
+  - `Z1AIF`: 7 = DTS:X. `Z1VIR`: 14 = 4K60. `GCTXS`: "IP only" / "IP and RS-232". `GCFPB` vises i %. `Z1DIA`: `n` = Not applicable. "No input" i stedet for "No audio"/"No video".
+- `backend/app/tools/fake_avm.py`: Atmos = `Z1AIC 6`, DTS-HD MA 7.1 = `Z1AIC 5`
+- `backend/tests/test_protocol.py`: 12 regressionstests mod det officielle dokument
+
 ## [0.10.0 build 0010] — 2026-10-03 — Kommando-kolonne i log mode
 
 FEATURES.md #17 og BUGS.md #3.

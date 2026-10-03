@@ -13,6 +13,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.protocol.catalog import blocked_reason
 from app.protocol.parser import Message, StreamSplitter, parse_message
 
 logger = logging.getLogger("avm70")
@@ -112,6 +113,10 @@ class AvmClient:
         code = code.strip().upper()
         if not _CODE_RE.match(code):
             raise ValueError(f"Invalid code: {code!r}")
+        reason = blocked_reason(code)
+        if reason is not None:
+            # Forsvar i dybden (FEATURES.md #18): gælder konsol, probe og alt andet.
+            raise ValueError(f"{code} is a {reason} command on the AVM70 and is blocked - the app is read-only")
         if not self.connected:
             raise AvmConnectionError("Not connected to AVM70")
         future = asyncio.get_running_loop().create_future()

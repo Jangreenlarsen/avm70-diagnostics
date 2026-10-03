@@ -68,7 +68,7 @@ async def test_service_reads_system_inputs_and_runtime_and_logs_changes(fake):
     dev = DeviceService(settings_for(fake.port))
     await dev.start()
     try:
-        await wait_until(lambda: any("Full read" in e["text"] for e in dev.log))
+        await wait_until(lambda: dev.changelog.started)  # alt læst, også fejlregistret
         assert dev.values["IDM"].text == "AVM 70"
         assert dev.values["Z1AIF"].text == "Atmos"
         assert dev.values["IS2IN"].raw == "Plex"
@@ -193,7 +193,7 @@ async def test_api_connect_query_probe_and_settings(api, fake, tmp_path):
 async def test_versions_read_on_connect_and_group_refresh_only_queries_that_group(api, fake):
     await api.post("/api/connect")
     dev = api.app.state.device
-    await wait_until(lambda: any("Full read" in e["text"] for e in dev.log))
+    await wait_until(lambda: dev.changelog.started)  # alt læst, også fejlregistret
     assert dev.values["GSN"].raw == "ALP2000256N070"
     assert dev.values["NMSVER"].text == "2.3.213"
     assert dev.values["RBD"].status == "ok" and dev.values["RBD"].raw == ""
@@ -210,3 +210,10 @@ async def test_refresh_rejects_unknown_group(api):
     r = await api.post("/api/refresh", params={"group": "nope"})
     assert r.status_code == 400
     assert "Unknown group" in r.json()["detail"]
+
+
+async def test_api_query_blocks_action_commands_with_explanation(api):
+    for cmd, word in [("LDFDS?", "factory reset"), ("fcr0001?", "fault counter reset"), ("Z1VUP?", "volume")]:
+        r = await api.post("/api/query", json={"command": cmd})
+        assert r.status_code == 400, cmd
+        assert word in r.json()["detail"] and "not even as a query" in r.json()["detail"]

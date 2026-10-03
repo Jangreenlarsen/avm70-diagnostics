@@ -18,7 +18,10 @@ EOL = "\r\n"
 # Sektion 1-3: eksplicit rækkefølge, så det vigtigste for support står først.
 IDENTIFICATION = ["IDM", "GCDN", "GSN", "IDQ", "IDR", "IDH"]
 FIRMWARE = ["IDS", "DSPIDS", "LCDIDS", "IDB", "NMSVER", "NMHVER", "RVER", "RBD", "NMR"]
-NETWORK = ["NMST", "EMAC", "WMAC", "GCTXS"]
+NETWORK = ["NMST", "GCIPSTT", "GCIPSTM", "GCIPSTI", "GCIPSTS", "GCIPSTG", "GCIPSDN", "EMAC", "WMAC", "GCTXS"]
+NETWORK_WEB = ["@NET_STATE", "@WIFI_STATE", "@WIFI_SSID", "@WIFI_BSSID", "@WIFI_IP", "@WIFI_BAND", "@WIFI_CHANNEL",
+               "@WIFI_SIGNAL", "@WIFI_QUALITY", "@WIFI_SECURITY", "@WIFI_CREDENTIALS", "@WIRED_CABLE",
+               "@WIRED_STATE", "@WIRED_IP", "@GATEWAYS", "@DNS", "@SOFTAP"]
 OTHER_SYSTEM = ["GCFPB", "ICN"]
 STATUS_GROUPS = [("zone1", "Zone 1"), ("audio", "Audio (zone 1)"), ("video", "Video (zone 1)"), ("zone2", "Zone 2")]
 
@@ -126,22 +129,46 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
     out += _value_lines(values, FIRMWARE)
 
     out += _heading(3, "Network")
+    out.append("[Control protocol]")
     out += _value_lines(values, NETWORK)
-    out.append(_field("IP address (as configured in app)", conn["host"]))
+    out.append(_field("Address used by this app", f"{conn['host']}:{conn['port']}"))
+    web_lines = _value_lines(values, NETWORK_WEB)
+    if web_lines:
+        out += ["", "[Device web API - network:info]"] + web_lines
 
     out += _heading(4, "System & inputs")
     out += _value_lines(values, OTHER_SYSTEM)
     inputs = sorted((c for c, v in values.items() if v["group"] == "inputs"), key=_input_sort_key)
     out += _value_lines(values, inputs) if inputs else ["(input names not read)"]
 
-    out += _heading(5, "Current status")
+    out += _heading(5, "Device settings")
+    settings_codes = [c for c, v in values.items() if v["group"] == "settings"]
+    out += _value_lines(values, settings_codes) if settings_codes else ["(settings not read)"]
+
+    out += _heading(6, "Fault counters")
+    faults = sorted((v for v in values.values() if v["group"] == "faults"), key=lambda v: v["code"])
+    if not faults:
+        out.append("(fault counters not read)")
+    else:
+        hw = faults[:8]
+        cmd_nonzero = [v for v in faults[8:] if (v.get("raw") or "0").strip() not in ("0", "")]
+        out.append("Read from the device's own fault register (FCC/FCN/FCQ). The meaning of each")
+        out.append("counter is not publicly documented; hardware names are derived from the counter names.")
+        out.append("")
+        out.append("[Hardware]")
+        out += _value_lines(values, [v["code"] for v in hw])
+        out.append("")
+        out.append(f"[Command fault counters - {len(cmd_nonzero)} of {len(faults) - len(hw)} not zero]")
+        out += _value_lines(values, [v["code"] for v in cmd_nonzero]) or ["(all zero)"]
+
+    out += _heading(7, "Current status")
     for group, title in STATUS_GROUPS:
         out.append(f"[{title}]")
         out += _value_lines(values, [c for c, v in values.items() if v["group"] == group])
         out.append("")
     out.pop()
 
-    out += _heading(6, "Command support (probe)")
+    out += _heading(8, "Command support (probe)")
     if probe:
         rows = probe["results"]
         ok = sum(1 for r in rows if r["status"] == "ok")
@@ -152,13 +179,13 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
         for r in rows:
             result = "OK" if r["status"] == "ok" else STATUS_TEXT.get(r["status"], r["status"])
             group = group_titles.get(r.get("group"), "")
-            meaning = f"{r['label']} ({group})" if group and r.get("group") not in ("system", "version", "inputs") else r["label"]
+            meaning = f"{r['label']} ({group})" if group and r.get("group") not in ("system", "version", "inputs", "settings", "faults") else r["label"]
             out.append(f"{r['code']:<9}{result:<34}{meaning}")
     else:
         out.append("No probe has been run in this session (Console & probe > Run probe).")
 
     log = snapshot["log"][-LOG_LIMIT:]
-    out += _heading(7, f"Event log (last {len(log)} entries, oldest first)")
+    out += _heading(9, f"Event log (last {len(log)} entries, oldest first)")
     for e in log:
         source = f" [{e['source']}]" if e.get("source") else ""
         out.append(f"{_local(e['ts'])}  {e['kind'].upper():<10}{source} {e['text']}")
@@ -166,7 +193,7 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
         out.append("(empty)")
 
     traffic = snapshot["traffic"][-TRAFFIC_LIMIT:]
-    out += _heading(8, f"Raw protocol traffic (last {len(traffic)} lines, oldest first)")
+    out += _heading(10, f"Raw protocol traffic (last {len(traffic)} lines, oldest first)")
     out.append("TX = sent by this app, RX = received from the device; [push] = unsolicited.")
     out.append("")
     for t in traffic:
@@ -176,7 +203,7 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
     if not traffic:
         out.append("(empty)")
 
-    out += _heading(9, "App settings")
+    out += _heading(11, "App settings")
     for key in ("host", "port", "poll_interval", "connect_timeout", "query_timeout", "auto_reconnect",
                 "auto_connect", "log_poll_interval", "owner"):
         out.append(_field(key, str(settings.get(key))))

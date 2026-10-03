@@ -4,7 +4,7 @@
 
 1. **Ingen lag må springe et lag over.** Frontend kalder kun API'et, API'et kalder kun service-laget, og kun protokol-laget taler TCP med AVM70.
 2. **Kun én forbindelse til AVM70.** Enheden accepterer kun én netværksklient. `DeviceService` ejer den ene `AvmClient`, og intet andet sted i koden må åbne en socket mod enheden.
-3. **Kun læsende.** Protokol-laget har en `query()`. API'ets rå-konsol afviser alt der ikke er en ren forespørgsel (`KODE?`). Afvisningen sker i backend, ikke kun i UI'et.
+3. **Kun læsende.** Protokol-laget har en `query()`. API'ets rå-konsol afviser alt der ikke er en ren forespørgsel (`KODE?`). Afvisningen sker i backend, ikke kun i UI'et. Kendte handlingskoder (`catalog.blocked_reason`, FEATURES.md #18) sendes aldrig, heller ikke som forespørgsel. Det håndhæves i `AvmClient.query`, så det gælder alle veje.
 4. **Alle lag eksponerer kun et veldefineret interface.** Interne implementeringsdetaljer er skjulte.
 
 ---
@@ -74,6 +74,8 @@
 | POST | `/api/query` | Rå forespørgsel (`{"command": "Z1VOL?"}`). Kun `?`-forespørgsler accepteres, og andet giver `400` |
 | POST | `/api/probe` | Spørg alle katalog-kommandoer og rapportér hvilke AVM70 understøtter |
 | GET  | `/api/export` | Diagnoserapport som struktureret engelsk `.txt` (attachment, `AVM70_<serienr>_<tid>.txt`). Genforespørger alt først, hvis der er forbindelse. Uden forbindelse bruges de senest kendte værdier, og rapporten skriver det tydeligt |
+| GET  | `/api/faults` | Fejlregister (FEATURES.md #21): antal, tidspunkt, evt. fejl og alle tællere |
+| POST | `/api/faults/refresh` | Genlæs tællerne (`409` uden forbindelse, eller hvis de allerede læses) |
 | GET  | `/api/changelog` | Ændringsloggen (FEATURES.md #14): `started_at`, `baseline` (initialværdier), `entries` (ændringer og forbindelsesmarkører), `dropped` |
 | POST | `/api/changelog/reset` | "Start new log": nyt øjebliksbillede af nuværende værdier. Kendes ingen værdier, startes loggen ved næste fulde aflæsning |
 | GET  | `/api/changelog/export` | Ændringsloggen som tekstfil (`AVM70_changelog_<serienr>_<tid>.txt`) |
@@ -90,7 +92,7 @@
 
 ### Lag 4 — Protokol
 - **Ansvar**: `catalog.py` er kommandokataloget (kode, beskrivelse, gruppe, værdi-opslag) og afkodning. `parser.py` splitter strømmen på `;` og klassificerer svar (værdi, fejlsvar, ukendt). `client.py` er asyncio-TCP-klienten: connect med timeout, læse-løkke, `query()` der matcher svar til forespørgsel, og callbacks for hver rå linje ind/ud og for forbindelsestab.
-- **Filer**: `app/protocol/catalog.py`, `app/protocol/parser.py`, `app/protocol/client.py`
+- **Filer**: `app/protocol/catalog.py`, `app/protocol/parser.py`, `app/protocol/client.py`, `app/protocol/webapi.py` (AVM70's web-API på port 80, kun læsning: `network:info` oversat til pseudo-koder `@...`)
 - **Regler**: Ingen viden om HTTP/SSE eller app-tilstand.
 
 ### Værktøj — Fake AVM70
