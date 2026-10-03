@@ -197,6 +197,56 @@ async def export_changelog(request: Request) -> Response:
     )
 
 
+class LogModeStart(BaseModel):
+    interval: float | None = None
+
+
+@router.get("/logmode")
+async def get_logmode(request: Request) -> dict:
+    dev = service(request)
+    return dev.logmode.to_dict(lines=300) if dev.logmode else {"active": False, "lines": []}
+
+
+@router.post("/logmode/start")
+async def start_logmode(request: Request, body: LogModeStart | None = None) -> dict:
+    """Log mode (FEATURES.md #15). Intervallet kommer fra ⚙ Setup, medmindre
+    et andet gives eksplicit (valideres med samme grænser)."""
+    dev = service(request)
+    interval = body.interval if body else None
+    if interval is not None:
+        try:
+            config.validate({"log_poll_interval": interval}, dev.settings)
+        except config.SettingsError as exc:
+            raise HTTPException(400, str(exc)) from None
+    return dev.start_logmode(interval)
+
+
+@router.post("/logmode/stop")
+async def stop_logmode(request: Request) -> dict:
+    result = service(request).stop_logmode()
+    if result is None:
+        raise HTTPException(409, "Log mode has not been started")
+    return result
+
+
+@router.get("/logmode/export")
+async def export_logmode(request: Request) -> Response:
+    """Hele log mode-sessionen (også de linjer der ikke længere er i UI'et)."""
+    dev = service(request)
+    if dev.logmode is None:
+        raise HTTPException(409, "Log mode has not been started")
+    gsn = dev.values.get("GSN")
+    serial = gsn.raw if gsn is not None and gsn.status == "ok" else ""
+    serial = re.sub(r"[^A-Za-z0-9_-]", "", (serial or "").strip()) or "unknown-serial"
+    started = datetime.fromisoformat(dev.logmode.to_dict(lines=0)["started_at"]).astimezone()
+    filename = f"AVM70_log_{serial}_{started.strftime('%Y%m%d-%H%M%S')}.txt"
+    return Response(
+        content=dev.logmode.text().encode("utf-8"),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 def _sse(event: dict) -> str:
     return f"event: {event['type']}\ndata: {json.dumps(event['data'], ensure_ascii=False)}\n\n"
 

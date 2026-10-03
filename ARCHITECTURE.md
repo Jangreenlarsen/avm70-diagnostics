@@ -77,11 +77,15 @@
 | GET  | `/api/changelog` | Ændringsloggen (FEATURES.md #14): `started_at`, `baseline` (initialværdier), `entries` (ændringer og forbindelsesmarkører), `dropped` |
 | POST | `/api/changelog/reset` | "Start new log": nyt øjebliksbillede af nuværende værdier. Kendes ingen værdier, startes loggen ved næste fulde aflæsning |
 | GET  | `/api/changelog/export` | Ændringsloggen som tekstfil (`AVM70_changelog_<serienr>_<tid>.txt`) |
+| GET  | `/api/logmode` | Log mode-session (FEATURES.md #15): `active`, `interval`, `counts`, `file`, de seneste linjer |
+| POST | `/api/logmode/start` | Slå log mode til. Intervallet kommer fra `log_poll_interval` i ⚙ Setup, eller `{"interval": n}` (2–3600 s, ellers `400`) |
+| POST | `/api/logmode/stop` | Slå log mode fra (skriver `STOPPED`). `409` hvis den aldrig er startet |
+| GET  | `/api/logmode/export` | Hele sessionen som tekstfil (`AVM70_log_<serienr>_<start>.txt`) |
 | GET  | `/api/events` | SSE: `state`, `value`, `connection`, `traffic`, `log`-events og heartbeat |
 
 ### Lag 3 — Service
 - **Ansvar**: Én `DeviceService`-instans. Ejer forbindelsen og reconnect-løkken (backoff 2→30 s), holder værdi-tilstanden (værdi, tekst, tidspunkt for seneste svar og seneste ændring), poller runtime-kommandoer med fast interval og publicerer hændelser til SSE-abonnenter. Fører også ringbuffere for trafik og hændelseslog.
-- **Filer**: `app/services/device_service.py`, `app/services/report.py` (ren funktion: snapshot → rapporttekst), `app/services/changelog.py` (ændringslog + tekstfil), `app/config.py`
+- **Filer**: `app/services/device_service.py`, `app/services/report.py` (ren funktion: snapshot → rapporttekst), `app/services/changelog.py` (ændringslog + tekstfil), `app/services/logmode.py` (log mode-session: INIT/OK/CHANGE/PUSH/INCOMPLETE, løbende fil, driftfrit skema), `app/config.py`
 - **Regler**: Må ikke åbne sockets selv. Går kun via `AvmClient`.
 
 ### Lag 4 — Protokol

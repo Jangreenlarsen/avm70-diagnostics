@@ -157,6 +157,20 @@ main { padding: 16px; display: grid; gap: 16px; }
 .baseline .scroll { max-height: 300px; border-top: 1px solid var(--border); }
 .cl-marker td { color: var(--muted); font-style: italic; background: var(--surface-2); }
 .cl-first td:nth-child(4) { color: var(--muted); }
+.rec { color: var(--bad); font-weight: 700; font-size: 11px; margin-left: 4px; }
+.follow { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 6px; }
+.logmode {
+  margin: 0; max-height: 520px; overflow: auto;
+  font: 12px/1.5 var(--mono); background: var(--surface-2);
+  padding: 8px; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.logmode .k-ok { color: var(--muted); }
+.logmode .k-change, .logmode .k-new { color: var(--accent); font-weight: 600; }
+.logmode .k-push { color: var(--warn); font-weight: 600; }
+.logmode .k-incomplete, .logmode .k-error { color: var(--bad); font-weight: 600; }
+.logmode .k-connection, .logmode .k-note, .logmode .k-stopped { color: var(--muted); font-style: italic; }
+.logmode .k-init { font-weight: 600; }
+.logmode .detail { color: var(--muted); }
 .probe-bar { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
 .hint { color: var(--muted); font-size: 12px; margin: 6px 0; }
 

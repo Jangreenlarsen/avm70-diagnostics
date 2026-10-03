@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        await device.stop()
+        await device.shutdown()
 
 
 def create_app() -> FastAPI:

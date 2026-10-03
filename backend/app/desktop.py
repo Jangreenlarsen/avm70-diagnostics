@@ -111,7 +111,7 @@ class DesktopApi:
 
     # Kun disse endpoints kan gemmes — JS kan ikke bede launcheren hente
     # vilkårlige URL'er.
-    _EXPORTS = {"report": "api/export", "changelog": "api/changelog/export"}
+    _EXPORTS = {"report": "api/export", "changelog": "api/changelog/export", "logmode": "api/logmode/export"}
 
     def save_report(self) -> dict:
         return self.save("report")

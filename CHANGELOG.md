@@ -4,6 +4,22 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.8.0 build 0008] — 2026-10-03 — Log mode med fast pollingcyklus
+
+FEATURES.md #15.
+
+**Filer tilføjet:**
+- `backend/app/services/logmode.py`: `LogSession`. Første cyklus er `INIT` med alle parametre. Derefter pr. cyklus `OK` eller `CHANGE`/`NEW` (sammenlignet med loggens egen sidste værdi, hvor fejlstatus indgår som værdi) eller `INCOMPLETE`. Desuden `PUSH` imellem cyklusser, `CONNECTION`, `NOTE` og `STOPPED`. Linjerne skrives løbende til fil (append + flush, CRLF), og de seneste 2000 holdes i hukommelsen. Kan filen ikke oprettes, fortsætter loggen i hukommelsen med en `ERROR`-linje. `next_due()` giver et driftfrit skema
+- `backend/tests/test_logmode.py`: 17 tests (skema, INIT, OK, CHANGE, statusskift, INCOMPLETE, NEW, PUSH uden dobbelt-logning, langsom cyklus, intervalskift, stop og fuld tekst med CRLF, uskrivbar mappe, service-integration med push og ændring uden push, normal polling på pause, fil ved shutdown, API-validering og export)
+
+**Filer ændret:**
+- `backend/app/services/device_service.py`: log-cyklus i forbindelsesløkken erstatter den normale polling mens log mode er aktiv. Poller katalog og kendte inputs og henter inputnavne, hvis `ICN` ændrer sig. Push går til `record_push`. Markører ved forbindelse, tabt forbindelse og afbrydelse. Intervalskift fra Setup træder i kraft med det samme. Ved adresseskift stoppes loggen. `shutdown()` lukker loggen pænt, når appen lukker
+- `backend/app/config.py`: `log_poll_interval` (standard 5 s, 2–3600 s). `DeviceSettings` konstrueres nu med keyword-argumenter
+- `backend/app/api/routes.py`: `/api/logmode`, `/start`, `/stop`, `/export`
+- `backend/app/desktop.py`: `logmode` tilføjet til de tilladte eksporter ("Save As")
+- `backend/app/main.py`: lifespan kalder `shutdown()`
+- `frontend/index.html`, `app.js`, `styles.css`: "Log mode"-fane med Enable/Disable, status og tællere, sti til logfilen, "● REC" i fanen, live tidslinje (farvet pr. type, "Follow newest"), "Save to file", "⚙ Log poll setup". Nyt "Log mode"-afsnit i Setup-dialogen
+
 ## [0.7.0 build 0007] — 2026-10-03 — Ændringslog med initialværdier, gemmes som tekst
 
 FEATURES.md #14 og BUGS.md #2.

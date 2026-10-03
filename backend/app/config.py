@@ -45,6 +45,7 @@ class EnvSettings(BaseSettings):
     query_timeout: float = 1.5
     auto_reconnect: bool = True
     auto_connect: bool = True
+    log_poll_interval: float = 5.0
     app_port: int = 8070
     log_level: str = "INFO"
 
@@ -67,6 +68,7 @@ class DeviceSettings:
     query_timeout: float = 1.5
     auto_reconnect: bool = True
     auto_connect: bool = True
+    log_poll_interval: float = 5.0  # log mode (FEATURES.md #15)
 
 
 FIELDS = tuple(DeviceSettings.__dataclass_fields__)
@@ -87,6 +89,7 @@ def validate(data: dict, base: DeviceSettings | None = None) -> DeviceSettings:
         poll = float(merged.get("poll_interval", 2.0))
         conn_to = float(merged.get("connect_timeout", 5.0))
         query_to = float(merged.get("query_timeout", 1.5))
+        log_poll = float(merged.get("log_poll_interval", 5.0))
     except (TypeError, ValueError):
         raise SettingsError("Port, interval and timeouts must be numbers") from None
     if not 1 <= port <= 65535:
@@ -99,19 +102,25 @@ def validate(data: dict, base: DeviceSettings | None = None) -> DeviceSettings:
         raise SettingsError("Connect timeout must be between 3 and 60 seconds")
     if not 0.2 <= query_to <= 10:
         raise SettingsError("Response timeout must be between 0.2 and 10 seconds")
+    # En fuld log-cyklus over ~48 parametre tager ca. 2 s på den rigtige enhed.
+    if not 2 <= log_poll <= 3600:
+        raise SettingsError("Log poll interval must be between 2 and 3600 seconds")
     for flag in ("auto_reconnect", "auto_connect"):
         if not isinstance(merged.get(flag, True), bool):
             raise SettingsError(f"{flag} must be true/false")
     return DeviceSettings(
-        host, port, poll, conn_to, query_to,
-        merged.get("auto_reconnect", True), merged.get("auto_connect", True),
+        host=host, port=port, poll_interval=poll, connect_timeout=conn_to, query_timeout=query_to,
+        auto_reconnect=merged.get("auto_reconnect", True), auto_connect=merged.get("auto_connect", True),
+        log_poll_interval=log_poll,
     )
 
 
 def env_defaults() -> DeviceSettings:
     return DeviceSettings(
-        env.avm_host, env.avm_port, env.poll_interval, env.connect_timeout,
-        env.query_timeout, env.auto_reconnect, env.auto_connect,
+        host=env.avm_host, port=env.avm_port, poll_interval=env.poll_interval,
+        connect_timeout=env.connect_timeout, query_timeout=env.query_timeout,
+        auto_reconnect=env.auto_reconnect, auto_connect=env.auto_connect,
+        log_poll_interval=env.log_poll_interval,
     )
 
 

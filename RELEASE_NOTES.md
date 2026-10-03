@@ -2,6 +2,18 @@
 
 ---
 
+## v0.8.0 — 2026-10-03 — Log mode
+
+- Ny fane **Log mode**. Når log mode slås til, polles *alle* parametre med et fast interval (standard 5 s):
+  - Første gang skrives **INIT** med alle parametre og deres værdier.
+  - Derefter kommer én **OK**-linje pr. poll, hvis alt svarede og intet ændrede sig.
+  - Har en parameter ændret sig, logges **CHANGE** med fra → til i stedet.
+  - Svarer nogle parametre ikke, logges **INCOMPLETE** med hvilke.
+  - Ændringer som enheden selv sender imellem to polls logges som **PUSH** med deres præcise tid.
+- Loggen skrives løbende til en fil, mens den kører, så intet går tabt hvis appen lukkes. **Save to file** gemmer en kopi.
+- Poll-intervallet ændres i **⚙ Setup → Log mode** (2–3600 s) og træder i kraft med det samme.
+- "● REC" i fanen viser, at log mode er aktiv. Mens den kører, erstatter den den normale polling.
+
 ## v0.7.0 — 2026-10-03 — Ændringslog
 
 - Ny fane **Change log**. Når appen har forbundet og læst alt, gemmes et øjebliksbillede af alle værdier ("Initial values"). Derefter logges kun ændringer, med tid i millisekunder, fra → til og om ændringen kom fra enheden selv (push) eller blev fundet ved polling.
