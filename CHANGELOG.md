@@ -4,6 +4,15 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.10.0 build 0010] — 2026-10-03 — Kommando-kolonne i log mode
+
+FEATURES.md #17 og BUGS.md #3.
+
+**Filer ændret:**
+- `backend/app/services/logmode.py`: ny kolonne efter type med retning og protokol-kommando (`POLL Z1AIF?`, `PUSH Z1AIF5`, `POLL 48 commands`). `command_cell()` afkorter kommandoer over 16 tegn med "...". INIT-detaljelinjerne har samme kolonne pr. parameter. Filhovedet har fået forklaring af COMMAND og en kolonneoverskrift (TIME / TYPE / COMMAND / DESCRIPTION). Hver linje har nu et løbenummer `seq` og feltet `cmd`
+- `frontend/app.js`: indrykning af detaljelinjer følger den nye kolonne. `mergeLogmode()` og `seq`-tjek i `addLogmodeLine()` sikrer at hver linje vises præcis én gang, og at et ældre HTTP-svar aldrig overskriver nyere SSE-linjer (BUGS.md #3: INIT manglede i UI'et)
+- `backend/tests/test_logmode.py`: 5 nye tests (kolonnens indhold pr. type, forklaringen starter altid i samme kolonne, afkortning, kolonneoverskrift, løbenumre)
+
 ## [0.9.0 build 0009] — 2026-10-03 — Systemejer i rapporter og logfiler
 
 FEATURES.md #16.

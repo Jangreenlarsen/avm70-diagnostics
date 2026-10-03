@@ -32,6 +32,11 @@ logger = logging.getLogger("avm70")
 
 UI_LINES = 2000
 KIND_WIDTH = 12
+# FEATURES.md #17: kolonnen med retning + protokol-kommando.
+CMD_WIDTH = 22
+CMD_MAX = 16  # selve kommandoen; længere push-linjer afkortes
+STAMP_WIDTH = 23  # "YYYY-MM-DD HH:MM:SS.mmm"
+DETAIL_INDENT = " " * (STAMP_WIDTH + 2 + KIND_WIDTH)
 STATUS_TEXT = {
     "invalid": "not supported",
     "out_of_range": "out of range",
@@ -63,6 +68,13 @@ def _label(code: str) -> str:
     return cmd.label if cmd else code
 
 
+def command_cell(direction: str, command: str) -> str:
+    """"POLL Z1AIF?" / "PUSH Z1AIF5" — afkortet så kolonnen holder bredden."""
+    if len(command) > CMD_MAX:
+        command = command[: CMD_MAX - 3] + "..."
+    return f"{direction} {command}"
+
+
 def next_due(started: float, interval: float, now: float) -> float:
     """Næste tidspunkt på det faste skema started + n*interval efter `now`
     (driftfrit: en langsom cyklus forskyder ikke de følgende). Springer
@@ -82,6 +94,9 @@ class LogSession:
         self.last: dict[str, tuple[str, str | None]] = {}
         self.lines: deque[dict] = deque(maxlen=UI_LINES)
         self.counts = {"cycles": 0, "ok": 0, "changes": 0, "incomplete": 0, "push": 0}
+        # Løbenummer pr. linje (BUGS.md #3): lader UI'et vise hver linje præcis
+        # én gang, uanset om den kommer via SSE før eller efter et HTTP-svar.
+        self._seq = 0
         self.path = log_dir / f"AVM70_log_{self.started_at.astimezone().strftime('%Y%m%d-%H%M%S')}.txt"
         self._file = None
         try:
@@ -105,6 +120,10 @@ class LogSession:
             "(found by polling); PUSH = change sent by the device itself between polls;",
             "NEW = parameter that appeared during the session; INCOMPLETE = some",
             "parameters did not answer in that poll.",
+            "COMMAND: POLL = query sent by this app (CODE?), PUSH = message sent by",
+            "the device on its own (CODE + value), as on the wire.",
+            _rule(),
+            f"{'TIME':<{STAMP_WIDTH}}  {'TYPE':<{KIND_WIDTH}}{'COMMAND':<{CMD_WIDTH}}DESCRIPTION",
             _rule(),
         ])
         if self.path is None:
@@ -125,12 +144,14 @@ class LogSession:
         except OSError as exc:
             logger.error("Log mode: write failed (%s)", exc)
 
-    def _add(self, kind: str, text: str, ts: datetime, detail: list[str] | None = None) -> dict:
+    def _add(self, kind: str, text: str, ts: datetime, detail: list[str] | None = None, cmd: str = "") -> dict:
         stamp = _local(_iso(ts))
-        line = f"{stamp}  {kind:<{KIND_WIDTH}}{text}"
-        entry = {"ts": _iso(ts), "kind": kind.lower(), "line": line, "detail": detail or []}
+        line = f"{stamp}  {kind:<{KIND_WIDTH}}{cmd:<{CMD_WIDTH}}{text}"
+        self._seq += 1
+        entry = {"seq": self._seq, "ts": _iso(ts), "kind": kind.lower(), "cmd": cmd, "line": line,
+                 "detail": detail or []}
         self.lines.append(entry)
-        self._write_raw([line] + [f"{' ' * (len(stamp) + 2)}{d}" for d in (detail or [])])
+        self._write_raw([line] + [f"{DETAIL_INDENT}{d}" for d in (detail or [])])
         return entry
 
     def _change_text(self, code: str, old: tuple, new: tuple) -> str:
@@ -152,33 +173,38 @@ class LogSession:
         out: list[dict] = []
 
         if not self.initialized:
-            detail = [f"{_label(c)} [{c}] {'.' * max(2, 34 - len(_label(c)) - len(c))} {_shown(v, c)}"
+            detail = [f"{command_cell('POLL', c + '?'):<{CMD_WIDTH}}"
+                      f"{_label(c)} {'.' * max(3, 38 - len(_label(c)))} {_shown(v, c)}"
                       for c, v in polled.items()]
-            out.append(self._add("INIT", f"{len(polled)} parameters", ts, detail))
+            out.append(self._add("INIT", f"{len(polled)} parameters", ts, detail, cmd=f"POLL {total} commands"))
             self.last.update(polled)
             self.initialized = True
             if missing:
-                out.append(self._add("INCOMPLETE", f"no response at init: {', '.join(missing)}", ts))
+                out.append(self._add("INCOMPLETE", f"no response at init: {', '.join(missing)}", ts,
+                                     cmd=f"POLL {total} commands"))
                 self.counts["incomplete"] += 1
             return out
 
         for code, value in polled.items():
             old = self.last.get(code)
             if old is None:
-                out.append(self._add("NEW", f"{_label(code)} [{code}]: {_shown(value, code)}", ts))
+                out.append(self._add("NEW", f"{_label(code)} [{code}]: {_shown(value, code)}", ts,
+                                     cmd=command_cell("POLL", code + "?")))
                 self.counts["changes"] += 1
             elif old != value:
-                out.append(self._add("CHANGE", self._change_text(code, old, value), ts))
+                out.append(self._add("CHANGE", self._change_text(code, old, value), ts,
+                                     cmd=command_cell("POLL", code + "?")))
                 self.counts["changes"] += 1
             self.last[code] = value
 
         slow = f" (poll took {duration:.1f} s, longer than the {self.interval:g} s interval)" if duration > self.interval else ""
         if missing:
             self.counts["incomplete"] += 1
-            out.append(self._add("INCOMPLETE", f"{total - len(missing)}/{total} polled - no response: {', '.join(missing)}{slow}", ts))
+            out.append(self._add("INCOMPLETE", f"{total - len(missing)}/{total} polled - no response: {', '.join(missing)}{slow}",
+                                 ts, cmd=f"POLL {total} commands"))
         elif not out:
             self.counts["ok"] += 1
-            out.append(self._add("OK", f"{total}/{total} polled, no changes{slow}", ts))
+            out.append(self._add("OK", f"{total}/{total} polled, no changes{slow}", ts, cmd=f"POLL {total} commands"))
         return out
 
     def record_push(self, code: str, raw: str, ts: datetime) -> dict | None:
@@ -191,9 +217,10 @@ class LogSession:
             return None
         self.last[code] = new
         self.counts["push"] += 1
+        cmd = command_cell("PUSH", code + raw)
         if old is None:
-            return self._add("PUSH", f"{_label(code)} [{code}]: {_shown(new, code)} (new)", ts)
-        return self._add("PUSH", self._change_text(code, old, new), ts)
+            return self._add("PUSH", f"{_label(code)} [{code}]: {_shown(new, code)} (new)", ts, cmd=cmd)
+        return self._add("PUSH", self._change_text(code, old, new), ts, cmd=cmd)
 
     def marker(self, text: str, ts: datetime | None = None) -> dict:
         return self._add("CONNECTION", text, ts or _now())
@@ -229,7 +256,7 @@ class LogSession:
         body = []
         for e in self.lines:
             body.append(e["line"])
-            body += [f"{' ' * 25}{d}" for d in e["detail"]]
+            body += [f"{DETAIL_INDENT}{d}" for d in e["detail"]]
         return EOL.join(body) + EOL
 
     def to_dict(self, lines: int = 500) -> dict:

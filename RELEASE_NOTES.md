@@ -2,6 +2,15 @@
 
 ---
 
+## v0.10.0 — 2026-10-03 — Kommando-kolonne i log mode
+
+- Log mode har fået en kolonne med selve kommandoen og dens retning:
+  - `POLL Z1AIF?` er det appen spurgte AVM70 om.
+  - `PUSH Z1AIF5` er det AVM70 selv sendte.
+  - `POLL 48 commands` står ved en hel poll-runde.
+- Forklaringen står bagefter som før. Filen har nu kolonneoverskrifter.
+- Rettet: INIT-linjen kunne mangle i appens visning af log mode, selvom den stod i filen.
+
 ## v0.9.0 — 2026-10-03 — Systemejer
 
 - Rapporten, ændringsloggen og log mode-filen oplyser nu øverst **"System owner: Jan Green Larsen"**. Det samme står i versionsmenuen.
