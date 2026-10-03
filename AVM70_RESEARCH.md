@@ -12,7 +12,7 @@ Kilder er brugerfora, Anthems FAQ og manual, integrations-biblioteker samt **AVM
 2. **Fejlregisteret er også firmwarens komplette kommandoliste**: 164 kommandoer. Vi bruger 42 i dag. Web-UI'et bruger ca. 226 varianter (med zone- og input-nummer). Flere kommandoer findes kun i firmwaren, fx `UPDOTA`, `RSTWFS`, `RWPS`, `R1SET`–`R3SET`, `Z1SIM` og `Z1ARCPRC`.
 3. **Mange kendte brugerproblemer kan diagnosticeres med koder vi endnu ikke læser**: IP-status (Wi-Fi/IP/gateway/DNS), standby-, CEC- og HDMI-bypass-indstillinger, triggere, bitdybde, ARC-gyldighed samt balance og tone.
 4. **Sikkerhed**: tabellen indeholder handlingskoder som `LDFDS` (*load factory default settings*), `CPYS`, `LOTFS`, `FCR` (nulstil fejltæller), `GCIPV_A` (anvend ny IP-opsætning) og `IIAI`/`IDAI` (tilføj/slet input). Appens konsol tillader i dag enhver `KODE?`. Vi ved ikke om en *forespørgsel* på en handlingskode er harmløs for alle koder. Anbefaling: en spærreliste (se afsnit 5, punkt 1).
-5. **Anthems officielle kodedokument** (`MRX-x40-AVM-70-90-IP-RS-232-v5.xls`, maj 2022) findes, men anthemav.com afviser automatisk download (404). Web-UI'et i enheden er en bedre kilde, fordi det følger den firmware der faktisk kører.
+5. **Anthems officielle kodedokument** `MRX-x40-AVM-70-90-IP-RS-232-v5.xls` (dateret 5. aug. 2020) er fundet i Wayback Machine (arkiveret 2023-01-29), da anthemav.com ikke længere udleverer det. Det ligger i [docs/anthem/](docs/anthem/) som original og som læsbar Markdown. Det afslørede at appens værditabel for `Z1AIC` var forkert for x40 (BUGS.md #4), og at `GCIPSTM=1` betyder **manuel IP**: Jans enhed har statisk opsætning med en DNS uden for sit subnet.
 
 ---
 
