@@ -11,11 +11,13 @@ from collections import deque
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
+from app import config
 from app.config import DeviceSettings
 from app.protocol import catalog
 from app.protocol.client import AvmClient, AvmConnectionError, QueryResult
 from app.protocol.parser import ERROR_TEXT, Message
 from app.services.changelog import ChangeLog
+from app.services.logmode import LogSession, next_due
 
 logger = logging.getLogger("avm70")
 
@@ -60,6 +62,9 @@ class DeviceService:
         self._probe_running = False
         self.last_probe: dict | None = None  # {"at": iso, "results": [...]} til rapporten
         self.changelog = ChangeLog()  # FEATURES.md #14
+        self.logmode: LogSession | None = None  # FEATURES.md #15
+        self._log_epoch = 0.0  # loop.time() for skemaets nulpunkt
+        self._log_next = 0.0   # loop.time() for næste log-cyklus
         self.values: dict[str, ValueState] = {}
         self.traffic: deque[dict] = deque(maxlen=RING_SIZE)
         self.log: deque[dict] = deque(maxlen=RING_SIZE)
@@ -91,6 +96,7 @@ class DeviceService:
             "traffic": list(self.traffic)[-300:],
             "probe_running": self._probe_running,
             "changelog": self.changelog.to_dict(),
+            "logmode": self.logmode.to_dict(lines=300) if self.logmode else None,
         }
 
     # ------------------------------------------------------------ pub/sub
@@ -149,6 +155,10 @@ class DeviceService:
             state = ValueState(msg.code, cmd.label, cmd.group)
             self.values[msg.code] = state
         self._apply_value(state, msg.value or "", origin)
+        if origin == "push" and self.logmode is not None and self.logmode.active:
+            entry = self.logmode.record_push(msg.code, msg.value or "", datetime.now(timezone.utc))
+            if entry is not None:
+                self._publish("logmode_line", entry)
         if msg.code == "ICN" and origin == "push":
             # Antallet af inputs ændret uden for en opdatering — hent navnene.
             asyncio.get_running_loop().create_task(self._refresh_inputs("refresh"))
@@ -239,6 +249,14 @@ class DeviceService:
             await self._task
             self._task = None
 
+    async def shutdown(self) -> None:
+        """Når appen lukker: afslut en aktiv log-session pænt (lukker filen
+        med en STOPPED-linje), og stop forbindelsen."""
+        if self.logmode is not None and self.logmode.active:
+            self.logmode.note("App is closing")
+            self.stop_logmode()
+        await self.stop()
+
     @property
     def running(self) -> bool:
         return self._task is not None and not self._task.done()
@@ -285,7 +303,19 @@ class DeviceService:
         if reconnect:
             await self.stop()
         target_changed = settings.host != self.settings.host or settings.port != self.settings.port
+        if target_changed and self.logmode is not None and self.logmode.active:
+            self.logmode.note(f"Device address changed to {settings.host}:{settings.port} - log mode stopped")
+            self.stop_logmode()
+        log_interval_changed = settings.log_poll_interval != self.settings.log_poll_interval
         self.settings = settings
+        if log_interval_changed and self.logmode is not None and self.logmode.active:
+            entry = self.logmode.set_interval(settings.log_poll_interval)
+            if entry is not None:
+                self._publish("logmode_line", entry)
+            loop_now = asyncio.get_running_loop().time()
+            self._log_epoch = loop_now
+            self._log_next = loop_now + settings.log_poll_interval
+            self._publish_logmode()
         if target_changed:
             self._init_values()
             self.last_probe = None
@@ -337,13 +367,26 @@ class DeviceService:
             self._set_connection("connected")
             self._add_log("connection", f"Connected to {self.settings.host}:{self.settings.port}")
             self._changelog_marker("Connected - values re-read; changes listed next may have happened while disconnected")
+            self._logmode_marker(f"Connected to {self.settings.host}:{self.settings.port} - "
+                                 "the next poll shows any changes made while disconnected")
             try:
                 await self._refresh_all("refresh")
+                self._log_next = asyncio.get_running_loop().time()  # frisk log-cyklus efter (gen)forbindelse
                 while not self._stop.is_set() and client.connected:
+                    if self.logmode is not None and self.logmode.active:
+                        # Log mode erstatter den normale polling (FEATURES.md #15).
+                        remaining = self._log_next - asyncio.get_running_loop().time()
+                        if remaining > 0.002:
+                            await self._wait(remaining, client)
+                            continue
+                        await self._log_cycle()
+                        continue
                     interval = self.settings.poll_interval
                     await self._wait(interval if interval > 0 else 3600, client)
                     if self._stop.is_set() or not client.connected:
                         break
+                    if self.logmode is not None and self.logmode.active:
+                        continue  # log mode blev slået til mens vi ventede
                     if self.settings.poll_interval > 0:
                         await self._query_many(self._runtime_codes(), "poll")
             except AvmConnectionError:
@@ -356,6 +399,7 @@ class DeviceService:
                 reason = client.disconnect_reason or "Connection closed"
                 self._add_log("error", reason)
                 self._changelog_marker(f"Connection lost: {reason}")
+                self._logmode_marker(f"Connection lost: {reason}")
                 if not self.settings.auto_reconnect:
                     self._set_connection("disconnected", error=reason)
                     break
@@ -367,6 +411,72 @@ class DeviceService:
             self._set_connection("disconnected")
         self._add_log("connection", "Disconnected")
         self._changelog_marker("Disconnected - logging paused")
+        self._logmode_marker("Disconnected - polling paused until the app connects again")
+
+    # ------------------------------------------------------------ log mode (FEATURES.md #15)
+
+    def _logmode_marker(self, text: str) -> None:
+        if self.logmode is not None and self.logmode.active:
+            self._publish("logmode_line", self.logmode.marker(text))
+
+    def _publish_logmode(self) -> None:
+        self._publish("logmode", self.logmode.to_dict(lines=300) if self.logmode else None)
+
+    def _all_codes(self) -> list[str]:
+        """Alle katalog-koder + de kendte input-koder (IS<n>IN/ARC)."""
+        def key(code: str) -> tuple[int, bool]:
+            digits = "".join(ch for ch in code if ch.isdigit())
+            return (int(digits or 0), code.endswith("ARC"))
+        inputs = sorted((c for c, v in self.values.items() if v.group == catalog.INPUTS), key=key)
+        return list(catalog.CATALOG) + inputs
+
+    async def _log_cycle(self) -> None:
+        loop = asyncio.get_running_loop()
+        session = self.logmode
+        ts = datetime.now(timezone.utc)
+        t0 = loop.time()
+        icn_before = self.values["ICN"].raw if "ICN" in self.values else None
+        results = await self._query_many(self._all_codes(), "logpoll")
+        if session is not self.logmode or not session.active:
+            return  # stoppet/genstartet mens cyklussen kørte
+        for entry in session.record_cycle(results, ts, loop.time() - t0):
+            self._publish("logmode_line", entry)
+        self._publish("logmode_counts", dict(session.counts))
+        self._log_next = next_due(self._log_epoch, session.interval, loop.time())
+        icn_after = self.values["ICN"].raw if "ICN" in self.values else None
+        if icn_after != icn_before:
+            # Antal inputs ændret: hent navne, så næste cyklus også poller de nye.
+            await self._refresh_inputs("logpoll")
+
+    def start_logmode(self, interval: float | None = None) -> dict:
+        if self.logmode is not None and self.logmode.active:
+            return self.logmode.to_dict(lines=300)
+        idm, gsn = self.values.get("IDM"), self.values.get("GSN")
+        model = idm.raw if idm and idm.status == "ok" else "AVM 70"
+        serial = gsn.raw if gsn and gsn.status == "ok" else "unknown serial"
+        self.logmode = LogSession(
+            interval or self.settings.log_poll_interval, config.DATA_DIR / "logs",
+            device=f"{model}, serial {serial}, {self.settings.host}:{self.settings.port}",
+            owner=self.settings.owner,
+        )
+        if not self.connected:
+            self.logmode.note("Started while not connected - the first poll runs when the app connects")
+        now = asyncio.get_running_loop().time()
+        self._log_epoch = self._log_next = now
+        self._wake.set()
+        self._add_log("info", f"Log mode started (poll every {self.logmode.interval:g} s)")
+        self._publish_logmode()
+        return self.logmode.to_dict(lines=300)
+
+    def stop_logmode(self) -> dict | None:
+        if self.logmode is None:
+            return None
+        if self.logmode.active:
+            self._publish("logmode_line", self.logmode.stop())
+            self._add_log("info", "Log mode stopped")
+            self._wake.set()
+        self._publish_logmode()
+        return self.logmode.to_dict(lines=300)
 
     # ------------------------------------------------------------ forespørgsler
 

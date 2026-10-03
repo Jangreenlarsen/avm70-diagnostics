@@ -85,6 +85,7 @@ const state = {
   log: [],
   traffic: [],
   changelog: { started_at: null, baseline: [], entries: [], dropped: 0 },
+  logmode: null,
 };
 
 // ---------------------------------------------------------------- render: connection
@@ -258,8 +259,10 @@ function applySnapshot(s) {
   state.log = s.log;
   state.traffic = s.traffic;
   state.changelog = s.changelog || state.changelog;
+  state.logmode = s.logmode || null;
   renderConnection();
   renderChangelog();
+  renderLogmode();
   renderCards();
   renderLog();
   renderTraffic();
@@ -275,6 +278,11 @@ function connectEvents() {
   es.addEventListener("traffic", (e) => addTraffic(JSON.parse(e.data)));
   es.addEventListener("changelog", (e) => { state.changelog = JSON.parse(e.data); renderChangelog(); });
   es.addEventListener("changelog_entry", (e) => addChangelogEntry(JSON.parse(e.data)));
+  es.addEventListener("logmode", (e) => { state.logmode = JSON.parse(e.data); renderLogmode(); });
+  es.addEventListener("logmode_line", (e) => addLogmodeLine(JSON.parse(e.data)));
+  es.addEventListener("logmode_counts", (e) => {
+    if (state.logmode) { state.logmode.counts = JSON.parse(e.data); renderLogmodeStatus(); }
+  });
   es.onerror = () => {
     // EventSource genforbinder selv; vis kun at backend er væk.
     const pill = $("#conn-pill");
@@ -389,6 +397,8 @@ function readForm() {
     query_timeout: Number(f.query_timeout.value),
     auto_reconnect: f.auto_reconnect.checked,
     auto_connect: f.auto_connect.checked,
+    log_poll_interval: Number(f.log_poll_interval.value),
+    owner: f.owner.value,
   };
 }
 
@@ -428,7 +438,8 @@ $("#setup-test").onclick = async (e) => {
 $("#setup-reset").onclick = async () => {
   if (!confirm("Reset to the default values from .env?")) return;
   try {
-    fillForm(await api("POST", "/api/settings/reset"));
+    state.settings = await api("POST", "/api/settings/reset");
+    fillForm(state.settings);
     setupResult("Defaults restored and saved", true);
   } catch (err) {
     setupResult(err.message, false);
@@ -477,6 +488,10 @@ function renderVersions() {
     el("dt", {}, "AVM70 Diagnostics"),
     el("dd", {}, el("span", { class: "val" }, appVersion ? `v${appVersion.version} build ${appVersion.build}` : "—")),
   ));
+  children.push(el("div", { class: "row" },
+    el("dt", {}, "System owner"),
+    el("dd", {}, el("span", { class: "val" }, (state.settings && state.settings.owner) || "—")),
+  ));
   for (const [title, values] of versionSections()) {
     children.push(el("div", { class: "section" }, title));
     for (const v of values) {
@@ -495,7 +510,10 @@ function renderVersions() {
 }
 
 function versionsAsText() {
-  const lines = [`AVM70 Diagnostics: v${appVersion?.version ?? "?"} build ${appVersion?.build ?? "?"}`];
+  const lines = [
+    `AVM70 Diagnostics: v${appVersion?.version ?? "?"} build ${appVersion?.build ?? "?"}`,
+    `System owner: ${(state.settings && state.settings.owner) || "-"}`,
+  ];
   for (const [title, values] of versionSections()) {
     lines.push("", `[${title}]`);
     for (const v of values) lines.push(`${v.label} (${v.code}): ${versionText(v)}`);
@@ -663,6 +681,64 @@ $("#cl-new").onclick = (e) => {
     toast(state.changelog.started_at ? "New change log started" : "The log starts after the next complete read");
   });
 };
+
+// ---------------------------------------------------------------- log mode (FEATURES #15)
+
+function logmodeLine(e) {
+  const block = el("div", { class: `k-${e.kind}` }, e.line);
+  if (!e.detail || e.detail.length === 0) return block;
+  const indent = " ".repeat(25);
+  return el("div", {}, block, ...e.detail.map((d) => el("div", { class: "detail" }, indent + d)));
+}
+
+function renderLogmodeStatus() {
+  const lm = state.logmode;
+  const active = Boolean(lm && lm.active);
+  $("#lm-rec").hidden = !active;
+  const btn = $("#lm-toggle");
+  btn.textContent = active ? "Disable log mode" : "Enable log mode";
+  btn.classList.toggle("primary", !active);
+  $("#lm-save").disabled = !lm;
+  if (!lm) {
+    $("#lm-status").textContent = "Polls every parameter at a fixed interval and logs INIT, then OK or the changes.";
+    $("#lm-file").textContent = "";
+    return;
+  }
+  const c = lm.counts || {};
+  const when = new Date(lm.started_at).toLocaleString("en-GB", { hour12: false });
+  $("#lm-status").textContent = `${active ? "Logging" : "Stopped"} · every ${lm.interval} s · started ${when} · `
+    + `${c.cycles || 0} polls, ${c.ok || 0} OK, ${c.changes || 0} changes, ${c.push || 0} push, ${c.incomplete || 0} incomplete`;
+  $("#lm-file").textContent = lm.file ? `Recording to: ${lm.file}` : "";
+}
+
+function renderLogmode() {
+  renderLogmodeStatus();
+  const lm = state.logmode;
+  const pre = $("#lm-body");
+  pre.replaceChildren(...(lm ? lm.lines.map(logmodeLine) : []));
+  if ($("#lm-follow").checked) pre.scrollTop = pre.scrollHeight;
+}
+
+function addLogmodeLine(e) {
+  if (!state.logmode) return;
+  state.logmode.lines.push(e);
+  if (state.logmode.lines.length > 2000) state.logmode.lines.shift();
+  if (e.kind === "stopped") state.logmode.active = false;
+  const pre = $("#lm-body");
+  pre.append(logmodeLine(e));
+  while (pre.childElementCount > 2000) pre.firstElementChild.remove();
+  if ($("#lm-follow").checked) pre.scrollTop = pre.scrollHeight;
+  renderLogmodeStatus();
+}
+
+$("#lm-toggle").onclick = (e) => action(e.currentTarget, async () => {
+  const active = state.logmode && state.logmode.active;
+  state.logmode = await api("POST", active ? "/api/logmode/stop" : "/api/logmode/start");
+  renderLogmode();
+  toast(active ? "Log mode stopped" : `Log mode started — polling every ${state.logmode.interval} s`);
+});
+$("#lm-save").onclick = (e) => action(e.currentTarget, () => saveExport("logmode", "/api/logmode/export", "AVM70_log.txt"));
+$("#lm-setup").onclick = () => $("#btn-setup").click();
 
 // ---------------------------------------------------------------- start
 

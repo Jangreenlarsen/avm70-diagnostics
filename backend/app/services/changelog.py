@@ -129,13 +129,14 @@ def changelog_filename(serial: str | None, now: datetime) -> str:
 
 
 def build_text(log: dict, device: dict, app_version: dict, now: datetime) -> str:
-    """`device`: {"model", "serial", "address"}. `now` skal være tidszone-bevidst."""
+    """`device`: {"model", "serial", "address", "owner"}. `now` skal være tidszone-bevidst."""
     entries = log["entries"]
     changes = sum(1 for e in entries if e["kind"] != "connection")
     out = [
         _rule("="),
         f" ANTHEM {(device.get('model') or 'AVM 70').upper()} - CHANGE LOG",
         _rule("="),
+        _field("System owner", device.get("owner") or "-"),
         _field("Device", f"{device.get('model') or '?'}, serial {device.get('serial') or '?'}, {device.get('address')}"),
         _field("Log started", _local(log["started_at"]) if log["started_at"] else "not started"),
         _field("Saved", f"{now.astimezone().strftime('%Y-%m-%d %H:%M:%S %z')}"),

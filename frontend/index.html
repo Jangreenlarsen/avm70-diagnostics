@@ -35,6 +35,7 @@
     <section class="panel">
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="changelog" aria-selected="true">Change log</button>
+        <button role="tab" data-tab="logmode" aria-selected="false">Log mode <span class="rec" id="lm-rec" hidden>● REC</span></button>
         <button role="tab" data-tab="log" aria-selected="false">Event log</button>
         <button role="tab" data-tab="traffic" aria-selected="false">Raw traffic</button>
         <button role="tab" data-tab="console" aria-selected="false">Console &amp; probe</button>
@@ -62,6 +63,19 @@
             <tbody id="cl-body"></tbody>
           </table>
         </div>
+      </div>
+
+      <div class="tab" id="tab-logmode" hidden>
+        <div class="toolbar">
+          <button id="lm-toggle" class="small primary">Enable log mode</button>
+          <span class="hint" id="lm-status">Polls every parameter at a fixed interval and logs INIT, then OK or the changes.</span>
+          <span class="spacer"></span>
+          <button id="lm-save" class="small" disabled>Save to file</button>
+          <button id="lm-setup" class="small" title="Change the log poll interval">⚙ Log poll setup</button>
+        </div>
+        <p class="hint" id="lm-file"></p>
+        <label class="hint follow"><input type="checkbox" id="lm-follow" checked> Follow newest</label>
+        <pre class="logmode" id="lm-body"></pre>
       </div>
 
       <div class="tab" id="tab-log" hidden>
@@ -112,6 +126,14 @@
       <p class="hint">Saved locally in <code>backend/data/settings.json</code>. Changing host or port makes the app reconnect.</p>
 
       <fieldset>
+        <legend>General</legend>
+        <label class="wide">System owner
+          <input name="owner" required maxlength="100" placeholder="Jan Green Larsen">
+          <small>Shown in the report, the change log and the log mode file</small>
+        </label>
+      </fieldset>
+
+      <fieldset>
         <legend>Connection</legend>
         <label>Host / IP
           <input name="host" required spellcheck="false" placeholder="10.1.1.7">
@@ -133,6 +155,14 @@
         <label>Response timeout (s)
           <input name="query_timeout" type="number" min="0.2" max="10" step="0.1" required>
           <small>How long to wait for the answer to each query</small>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Log mode</legend>
+        <label>Log poll interval (s)
+          <input name="log_poll_interval" type="number" min="2" max="3600" step="1" required>
+          <small>How often log mode polls every parameter (2–3600 s). Applies immediately to a running log.</small>
         </label>
       </fieldset>
 
