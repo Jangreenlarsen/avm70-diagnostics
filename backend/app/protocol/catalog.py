@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 SYSTEM = "system"
 VERSION = "version"
 SETTINGS = "settings"
+FAULTS = "faults"
 ZONE1 = "zone1"
 AUDIO = "audio"
 VIDEO = "video"
@@ -24,6 +25,7 @@ GROUP_TITLES = {
     SYSTEM: "System",
     VERSION: "Versions",
     SETTINGS: "Settings",
+    FAULTS: "Fault counters",
     ZONE1: "Zone 1",
     AUDIO: "Audio (zone 1)",
     VIDEO: "Video (zone 1)",
@@ -201,6 +203,44 @@ def blocked_reason(code: str) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------- fejlregister
+# FEATURES.md #21. FCC? -> antal tællere (hex); FCN<id>? -> navn; FCQ<id>? ->
+# antal fejl. id er 4 hex-cifre fra 0001 — sådan bruger enhedens web-UI og
+# Jans firmware det. (Protokol-dokumentet v5 siger 2 hex-cifre fra 0, men det
+# svarer ikke til den firmware der kører.) Betydningen er ikke offentligt
+# dokumenteret; hardware-navnene herunder er udledt af selve navnene.
+HARDWARE_FAULTS = {
+    "PRIAAMP": "Analog amplifier",
+    "PRIDAMP": "Digital amplifier",
+    "PRIPWR": "Power",
+    "PRITHERMAL": "Thermal",
+    "PRILOSFAN": "Fan (low speed)",
+    "PRIHISFAN": "Fan (high speed)",
+    "PRIH2LPSU": "Power supply",
+    "PRIGBLTHER": "Global thermal",
+}
+HARDWARE_FAULT_COUNT = len(HARDWARE_FAULTS)  # de første tællere (0001-0008)
+FAULT_NAMES: dict[str, str] = {}  # id ("0004") -> navn ("PRITHERMAL"); fyldes af DeviceService
+_FAULT_RE = re.compile(r"^FCQ([0-9A-F]{4})$")
+
+
+def fault_code(index: int) -> str:
+    return f"FCQ{index:04X}"
+
+
+def fault_codes(count: int) -> list[str]:
+    return [fault_code(i) for i in range(1, count + 1)]
+
+
+def fault_label(fault_id: str) -> str:
+    name = FAULT_NAMES.get(fault_id)
+    if name is None:
+        return f"Fault counter {fault_id}"
+    if name in HARDWARE_FAULTS:
+        return f"{HARDWARE_FAULTS[name]} fault ({name})"
+    return f"Command {name} faults"
+
+
 def input_commands(count: int) -> list[str]:
     """Koderne for navn og rumkorrektion (ARC) på input 1..count."""
     codes = []
@@ -213,6 +253,9 @@ def lookup(code: str) -> Command | None:
     """Katalog-opslag, inkl. de dynamiske input-koder (IS<n>IN/IS<n>ARC)."""
     if code in CATALOG:
         return CATALOG[code]
+    m = _FAULT_RE.match(code)
+    if m:
+        return Command(code, fault_label(m.group(1)), FAULTS)
     m = _INPUT_RE.match(code)
     if m:
         n, kind = m.groups()

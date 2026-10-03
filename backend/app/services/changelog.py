@@ -16,7 +16,7 @@ from app.protocol import catalog
 from app.services.report import EOL, _field, _local, _rule, _value_text
 
 MAX_ENTRIES = 20000
-GROUP_ORDER = ["system", "version", "settings", "inputs", "zone1", "audio", "video", "zone2"]
+GROUP_ORDER = ["system", "version", "settings", "faults", "inputs", "zone1", "audio", "video", "zone2"]
 
 
 def _now() -> str:

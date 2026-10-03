@@ -46,8 +46,8 @@ SNAP = _snapshot([
 def test_report_has_all_sections_in_order_and_crlf():
     text = report.build_report(SNAP, {"version": "0.5.0", "build": "0005"}, NOW, refreshed=True)
     headings = ["1. DEVICE IDENTIFICATION", "2. FIRMWARE / VERSIONS", "3. NETWORK", "4. SYSTEM & INPUTS",
-                "5. DEVICE SETTINGS", "6. CURRENT STATUS", "7. COMMAND SUPPORT (PROBE)", "8. EVENT LOG",
-                "9. RAW PROTOCOL TRAFFIC", "10. APP SETTINGS", "END OF REPORT"]
+                "5. DEVICE SETTINGS", "6. FAULT COUNTERS", "7. CURRENT STATUS", "8. COMMAND SUPPORT (PROBE)",
+                "9. EVENT LOG", "10. RAW PROTOCOL TRAFFIC", "11. APP SETTINGS", "END OF REPORT"]
     positions = [text.index(h) for h in headings]
     assert positions == sorted(positions)
     assert "\r\n" in text and "\n" not in text.replace("\r\n", "")

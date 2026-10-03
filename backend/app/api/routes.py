@@ -156,6 +156,8 @@ async def export(request: Request) -> Response:
     if dev.connected:
         try:
             await dev.refresh()
+            if dev.faults["count"] and not dev.faults["reading"]:
+                await dev.refresh_faults()  # friske tællere til support
             refreshed = True
         except Exception as exc:  # noqa: BLE001 — eksporten skal lykkes med de kendte værdier; fejlen står i rapporten
             refresh_error = str(exc) or type(exc).__name__
@@ -169,6 +171,24 @@ async def export(request: Request) -> Response:
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/faults")
+async def get_faults(request: Request) -> dict:
+    """Fejlregister (FEATURES.md #21): metadata + alle kendte tællere."""
+    dev = service(request)
+    counters = [asdict(v) for v in dev.values.values() if v.group == catalog.FAULTS]
+    return {**dev.faults, "hardware": list(catalog.HARDWARE_FAULTS), "counters": counters}
+
+
+@router.post("/faults/refresh")
+async def refresh_faults(request: Request) -> dict:
+    try:
+        return await service(request).refresh_faults()
+    except NotConnectedError as exc:
+        raise HTTPException(409, str(exc)) from None
+    except BusyError as exc:
+        raise HTTPException(409, str(exc)) from None
 
 
 @router.get("/changelog")

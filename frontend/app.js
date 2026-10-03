@@ -21,7 +21,8 @@ const STATUS_TEXT = {
   connected: "Connected",
 };
 const SOURCE_TEXT = { push: "push", poll: "poll", refresh: "refresh", console: "console", probe: "probe", test: "test" };
-const GROUP_ORDER = ["system", "inputs", "zone1", "audio", "video", "zone2", "settings"];
+const GROUP_ORDER = ["system", "faults", "inputs", "zone1", "audio", "video", "zone2", "settings"];
+const HARDWARE_FAULT_COUNT = 8;  // FCQ0001-0008 er hardwaretællere (FEATURES.md #21)
 // Grupper der ikke vises som kort på forsiden (har deres egen menu).
 const MENU_GROUPS = new Set(["version"]);
 
@@ -86,6 +87,7 @@ const state = {
   traffic: [],
   changelog: { started_at: null, baseline: [], entries: [], dropped: 0 },
   logmode: null,
+  faults: {},
 };
 
 // ---------------------------------------------------------------- render: connection
@@ -128,6 +130,7 @@ function renderCards() {
   for (const [group, values] of byGroup) {
     const card = el("article", { class: "card", dataset: { group } }, el("h2", {}, state.groups[group] || group));
     if (group === "inputs") values.sort((a, b) => inputOrder(a.code) - inputOrder(b.code));
+    if (group === "faults") { renderFaultCard(card, values); host.append(card); continue; }
     if (values.length === 0) {
       card.append(el("p", { class: "empty" }, group === "inputs" ? "Read once the input count is known" : "No data"));
     } else {
@@ -137,6 +140,33 @@ function renderCards() {
     }
     host.append(card);
   }
+}
+
+/** Fejlregister-kort: hardwaretællere altid, kommandotællere kun hvis > 0. */
+function renderFaultCard(card, values) {
+  values.sort((a, b) => a.code.localeCompare(b.code));
+  const f = state.faults || {};
+  const hw = values.slice(0, HARDWARE_FAULT_COUNT);
+  const nonzero = values.slice(HARDWARE_FAULT_COUNT).filter((v) => v.raw !== null && v.raw.trim() !== "0" && v.raw.trim() !== "");
+  const head = el("div", { class: "card-tools" },
+    el("span", { class: "hint" }, f.reading ? "Reading…" : f.read_at ? `Read ${fmtTime(f.read_at)}` : f.error || "Read after connecting"),
+    el("button", { class: "small", id: "faults-refresh" }, "Re-read"));
+  card.append(head);
+  if (values.length === 0) {
+    card.append(el("p", { class: "empty" }, f.error || "Not read yet"));
+  } else {
+    const dl = el("dl", { class: "rows" });
+    for (const v of hw) dl.append(renderRow(v));
+    dl.append(el("div", { class: "row sub" }, el("dt", {}, "Command fault counters"),
+      el("dd", {}, el("span", { class: "val" }, `${nonzero.length} of ${values.length - hw.length} not zero`))));
+    for (const v of nonzero) dl.append(renderRow(v));
+    card.append(dl);
+  }
+  card.querySelector("#faults-refresh").onclick = (e) => action(e.currentTarget, async () => {
+    await api("POST", "/api/faults/refresh");
+    toast("Fault counters re-read");
+  });
+  card.querySelector("#faults-refresh").disabled = !state.connection || state.connection.status !== "connected" || f.reading;
 }
 
 function inputOrder(code) {
@@ -259,6 +289,7 @@ function applySnapshot(s) {
   state.log = s.log;
   state.traffic = s.traffic;
   state.changelog = s.changelog || state.changelog;
+  state.faults = s.faults || {};
   mergeLogmode(s.logmode || null);
   renderConnection();
   renderChangelog();
@@ -280,6 +311,7 @@ function connectEvents() {
   es.addEventListener("changelog_entry", (e) => addChangelogEntry(JSON.parse(e.data)));
   es.addEventListener("logmode", (e) => { mergeLogmode(JSON.parse(e.data)); renderLogmode(); });
   es.addEventListener("logmode_line", (e) => addLogmodeLine(JSON.parse(e.data)));
+  es.addEventListener("faults", (e) => { state.faults = JSON.parse(e.data); renderCards(); });
   es.addEventListener("logmode_counts", (e) => {
     if (state.logmode) { state.logmode.counts = JSON.parse(e.data); renderLogmodeStatus(); }
   });

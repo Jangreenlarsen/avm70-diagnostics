@@ -65,6 +65,8 @@ class DeviceService:
         self.logmode: LogSession | None = None  # FEATURES.md #15
         self._log_epoch = 0.0  # loop.time() for skemaets nulpunkt
         self._log_next = 0.0   # loop.time() for næste log-cyklus
+        # Fejlregister (FEATURES.md #21)
+        self.faults = {"count": None, "read_at": None, "error": None, "reading": False}
         self.values: dict[str, ValueState] = {}
         self.traffic: deque[dict] = deque(maxlen=RING_SIZE)
         self.log: deque[dict] = deque(maxlen=RING_SIZE)
@@ -97,6 +99,7 @@ class DeviceService:
             "probe_running": self._probe_running,
             "changelog": self.changelog.to_dict(),
             "logmode": self.logmode.to_dict(lines=300) if self.logmode else None,
+            "faults": dict(self.faults),
         }
 
     # ------------------------------------------------------------ pub/sub
@@ -371,6 +374,8 @@ class DeviceService:
                                  "the next poll shows any changes made while disconnected")
             try:
                 await self._refresh_all("refresh")
+                await self._read_faults("refresh", names=True)
+                self._maybe_start_changelog()
                 self._log_next = asyncio.get_running_loop().time()  # frisk log-cyklus efter (gen)forbindelse
                 while not self._stop.is_set() and client.connected:
                     if self.logmode is not None and self.logmode.active:
@@ -413,6 +418,59 @@ class DeviceService:
         self._changelog_marker("Disconnected - logging paused")
         self._logmode_marker("Disconnected - polling paused until the app connects again")
 
+    # ------------------------------------------------------------ fejlregister (FEATURES.md #21)
+
+    async def _read_faults(self, origin: str, names: bool = False) -> None:
+        """Læs tællerne (og navnene første gang / hvis antallet ændrer sig).
+        Fejl her må aldrig vælte forbindelsen — registret er et tillæg."""
+        client = self._client
+        if client is None:
+            raise AvmConnectionError("Not connected to AVM70")
+        self.faults.update(reading=True, error=None)
+        self._publish("faults", dict(self.faults))
+        try:
+            fcc = await client.query("FCC", origin, timeout=self.settings.query_timeout)
+            if fcc.status != "ok" or not fcc.value or not all(ch in "0123456789ABCDEFabcdef" for ch in fcc.value):
+                self.faults.update(error=f"The AVM70 did not report its fault counters (FCC: {fcc.status})")
+                return
+            count = int(fcc.value, 16)
+            if names or count != self.faults["count"] or len(catalog.FAULT_NAMES) != count:
+                catalog.FAULT_NAMES.clear()
+                for i in range(1, count + 1):
+                    r = await client.query(f"FCN{i:04X}", origin, timeout=self.settings.query_timeout)
+                    if r.status == "ok" and r.value:
+                        catalog.FAULT_NAMES[f"{i:04X}"] = r.value.strip()
+                for code, state in self.values.items():
+                    if state.group == catalog.FAULTS:
+                        state.label = catalog.lookup(code).label
+            self.faults["count"] = count
+            await self._query_many(catalog.fault_codes(count), origin)
+            self.faults["read_at"] = _now()
+            nonzero = [v for v in self.values.values()
+                       if v.group == catalog.FAULTS and v.status == "ok" and (v.raw or "0").strip() not in ("0", "")]
+            self._add_log("info", f"Fault counters read: {count} counters, {len(nonzero)} not zero")
+        finally:
+            self.faults["reading"] = False
+            self._publish("faults", dict(self.faults))
+
+    async def refresh_faults(self) -> dict:
+        if not self.connected:
+            raise NotConnectedError("Not connected to AVM70")
+        if self.faults["reading"]:
+            raise BusyError("The fault counters are already being read")
+        await self._read_faults("refresh")
+        return dict(self.faults)
+
+    def _fault_codes_for_cycle(self, cycle: int) -> list[str]:
+        """Log mode: hardwaretællerne hver runde, alle tællere ved INIT og hver
+        12. runde (alle 164 hver runde ville tage ~6 s ekstra)."""
+        count = self.faults["count"] or 0
+        if count == 0:
+            return []
+        if cycle % 12 == 0:
+            return catalog.fault_codes(count)
+        return catalog.fault_codes(min(count, catalog.HARDWARE_FAULT_COUNT))
+
     # ------------------------------------------------------------ log mode (FEATURES.md #15)
 
     def _logmode_marker(self, text: str) -> None:
@@ -436,7 +494,8 @@ class DeviceService:
         ts = datetime.now(timezone.utc)
         t0 = loop.time()
         icn_before = self.values["ICN"].raw if "ICN" in self.values else None
-        results = await self._query_many(self._all_codes(), "logpoll")
+        codes = self._all_codes() + self._fault_codes_for_cycle(session.counts["cycles"])
+        results = await self._query_many(codes, "logpoll")
         if session is not self.logmode or not session.active:
             return  # stoppet/genstartet mens cyklussen kørte
         for entry in session.record_cycle(results, ts, loop.time() - t0):
@@ -513,6 +572,10 @@ class DeviceService:
         await self._refresh_inputs(origin)
         await self._query_many(self._runtime_codes(), origin)
         self._add_log("info", "Full read of system and runtime values completed")
+
+    def _maybe_start_changelog(self) -> None:
+        """Ændringsloggen starter først når ALT er læst (værdier og fejlregister)
+        — ellers ville sent læste værdier stå som "first value" i loggen."""
         if not self.changelog.started:
             self.changelog.start([asdict(v) for v in self.values.values()])
             self._add_log("info", f"Change log started with {len(self.changelog.baseline)} initial values")
@@ -524,6 +587,7 @@ class DeviceService:
             raise NotConnectedError("Not connected to AVM70")
         if group is None:
             await self._refresh_all("refresh")
+            self._maybe_start_changelog()
         elif group == catalog.INPUTS:
             await self._query_many(["ICN"], "refresh")
             await self._refresh_inputs("refresh")

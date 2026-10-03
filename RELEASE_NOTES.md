@@ -2,6 +2,15 @@
 
 ---
 
+## v0.14.0 — 2026-10-03 — Fejlregister
+
+- Nyt kort **Fault counters** med AVM70's eget fejlregister:
+  - De 8 hardwaretællere: forstærker, strøm, temperatur, ventilator og strømforsyning.
+  - De kommandotællere der ikke står på 0.
+- Registret læses når appen forbinder, og kan læses igen med **Re-read**.
+- Rapporten har en ny sektion 6 med tællerne, læst lige før eksport.
+- Log mode holder øje med hardwaretællerne i hver runde og med alle tællere hver 12. runde, så en ny fejl bliver logget med tidspunkt.
+
 ## v0.13.0 — 2026-10-03 — Indstillinger
 
 - Nyt kort **Settings** med de indstillinger der forklarer tænd/sluk-, standby-, CEC- og lydproblemer:

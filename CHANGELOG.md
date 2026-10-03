@@ -4,6 +4,20 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.14.0 build 0015] — 2026-10-03 — Fejlregister
+
+FEATURES.md #21.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: `FAULTS`-gruppe og dynamiske koder `FCQ<4 hex>`. Etiketter efter navnet fra `FCN`: hardwaretællere som fx "Thermal fault (PRITHERMAL)", øvrige som "Command Z1AIF faults". `HARDWARE_FAULTS`, `fault_codes()`, `FAULT_NAMES`
+- `backend/app/protocol/parser.py`: `FCQ`/`FCN`-svar
+- `backend/app/services/device_service.py`: `_read_faults()` ved forbindelse (navne + tællere). Fejl i registret vælter aldrig forbindelsen. `refresh_faults()`. Log mode læser hardwaretællerne hver runde og alle hver 12. runde. Ændringsloggen starter først når også fejlregistret er læst (ellers ville tællerne stå som "first value"). Nyt SSE-event `faults`
+- `backend/app/api/routes.py`: `GET /api/faults`, `POST /api/faults/refresh`. Rapport-eksporten genlæser tællerne
+- `backend/app/services/report.py`: ny sektion "6. Fault counters" (hardware + ikke-nul kommandotællere). Efterfølgende sektioner er omnummereret (7–11)
+- `backend/app/tools/fake_avm.py`: 10 fejltællere (8 hardware + `Z1AIF`=3, `IS`=6)
+- `frontend/app.js`, `styles.css`: kortet "Fault counters" med tidspunkt og "Re-read"
+- `backend/tests/test_faults.py`: 10 tests (parser, etiketter, spærret `FCR`, læsning ved forbindelse før ændringsloggen, manglende register, log mode-udvalg, stigende hardwaretæller logges, API og rapport)
+
 ## [0.13.0 build 0014] — 2026-10-03 — Drift- og standby-indstillinger
 
 FEATURES.md #20.

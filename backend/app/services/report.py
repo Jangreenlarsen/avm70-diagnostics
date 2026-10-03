@@ -138,14 +138,30 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
     settings_codes = [c for c, v in values.items() if v["group"] == "settings"]
     out += _value_lines(values, settings_codes) if settings_codes else ["(settings not read)"]
 
-    out += _heading(6, "Current status")
+    out += _heading(6, "Fault counters")
+    faults = sorted((v for v in values.values() if v["group"] == "faults"), key=lambda v: v["code"])
+    if not faults:
+        out.append("(fault counters not read)")
+    else:
+        hw = faults[:8]
+        cmd_nonzero = [v for v in faults[8:] if (v.get("raw") or "0").strip() not in ("0", "")]
+        out.append("Read from the device's own fault register (FCC/FCN/FCQ). The meaning of each")
+        out.append("counter is not publicly documented; hardware names are derived from the counter names.")
+        out.append("")
+        out.append("[Hardware]")
+        out += _value_lines(values, [v["code"] for v in hw])
+        out.append("")
+        out.append(f"[Command fault counters - {len(cmd_nonzero)} of {len(faults) - len(hw)} not zero]")
+        out += _value_lines(values, [v["code"] for v in cmd_nonzero]) or ["(all zero)"]
+
+    out += _heading(7, "Current status")
     for group, title in STATUS_GROUPS:
         out.append(f"[{title}]")
         out += _value_lines(values, [c for c, v in values.items() if v["group"] == group])
         out.append("")
     out.pop()
 
-    out += _heading(7, "Command support (probe)")
+    out += _heading(8, "Command support (probe)")
     if probe:
         rows = probe["results"]
         ok = sum(1 for r in rows if r["status"] == "ok")
@@ -156,13 +172,13 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
         for r in rows:
             result = "OK" if r["status"] == "ok" else STATUS_TEXT.get(r["status"], r["status"])
             group = group_titles.get(r.get("group"), "")
-            meaning = f"{r['label']} ({group})" if group and r.get("group") not in ("system", "version", "inputs", "settings") else r["label"]
+            meaning = f"{r['label']} ({group})" if group and r.get("group") not in ("system", "version", "inputs", "settings", "faults") else r["label"]
             out.append(f"{r['code']:<9}{result:<34}{meaning}")
     else:
         out.append("No probe has been run in this session (Console & probe > Run probe).")
 
     log = snapshot["log"][-LOG_LIMIT:]
-    out += _heading(8, f"Event log (last {len(log)} entries, oldest first)")
+    out += _heading(9, f"Event log (last {len(log)} entries, oldest first)")
     for e in log:
         source = f" [{e['source']}]" if e.get("source") else ""
         out.append(f"{_local(e['ts'])}  {e['kind'].upper():<10}{source} {e['text']}")
@@ -170,7 +186,7 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
         out.append("(empty)")
 
     traffic = snapshot["traffic"][-TRAFFIC_LIMIT:]
-    out += _heading(9, f"Raw protocol traffic (last {len(traffic)} lines, oldest first)")
+    out += _heading(10, f"Raw protocol traffic (last {len(traffic)} lines, oldest first)")
     out.append("TX = sent by this app, RX = received from the device; [push] = unsolicited.")
     out.append("")
     for t in traffic:
@@ -180,7 +196,7 @@ def build_report(snapshot: dict, app_version: dict, now: datetime, refreshed: bo
     if not traffic:
         out.append("(empty)")
 
-    out += _heading(10, "App settings")
+    out += _heading(11, "App settings")
     for key in ("host", "port", "poll_interval", "connect_timeout", "query_timeout", "auto_reconnect",
                 "auto_connect", "log_poll_interval", "owner"):
         out.append(_field(key, str(settings.get(key))))

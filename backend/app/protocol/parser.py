@@ -32,6 +32,7 @@ _ZONE_SUFFIXES = sorted(
 )
 _ZONE_RE = re.compile(r"^(Z\d)(" + "|".join(_ZONE_SUFFIXES) + r")(.*)$", re.S)
 _INPUT_RE = re.compile(r"^(IS\d+(?:IN|ARC))(.*)$", re.S)
+_FAULT_RE = re.compile(r"^(FC[NQ][0-9A-F]{4})(.*)$", re.S)  # FEATURES.md #21
 _TOP_CODES = sorted(
     (c for c in CATALOG if not re.match(r"^Z\d", c)), key=len, reverse=True
 )
@@ -54,6 +55,9 @@ def parse_message(raw: str) -> Message:
     if m:
         return Message(raw, "value", code=m.group(1) + m.group(2), value=m.group(3))
     m = _INPUT_RE.match(raw)
+    if m:
+        return Message(raw, "value", code=m.group(1), value=m.group(2))
+    m = _FAULT_RE.match(raw)
     if m:
         return Message(raw, "value", code=m.group(1), value=m.group(2))
     for code in _TOP_CODES:

@@ -74,6 +74,8 @@
 | POST | `/api/query` | Rå forespørgsel (`{"command": "Z1VOL?"}`). Kun `?`-forespørgsler accepteres, og andet giver `400` |
 | POST | `/api/probe` | Spørg alle katalog-kommandoer og rapportér hvilke AVM70 understøtter |
 | GET  | `/api/export` | Diagnoserapport som struktureret engelsk `.txt` (attachment, `AVM70_<serienr>_<tid>.txt`). Genforespørger alt først, hvis der er forbindelse. Uden forbindelse bruges de senest kendte værdier, og rapporten skriver det tydeligt |
+| GET  | `/api/faults` | Fejlregister (FEATURES.md #21): antal, tidspunkt, evt. fejl og alle tællere |
+| POST | `/api/faults/refresh` | Genlæs tællerne (`409` uden forbindelse, eller hvis de allerede læses) |
 | GET  | `/api/changelog` | Ændringsloggen (FEATURES.md #14): `started_at`, `baseline` (initialværdier), `entries` (ændringer og forbindelsesmarkører), `dropped` |
 | POST | `/api/changelog/reset` | "Start new log": nyt øjebliksbillede af nuværende værdier. Kendes ingen værdier, startes loggen ved næste fulde aflæsning |
 | GET  | `/api/changelog/export` | Ændringsloggen som tekstfil (`AVM70_changelog_<serienr>_<tid>.txt`) |

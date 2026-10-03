@@ -71,6 +71,15 @@ DEFAULT_VALUES = {
 }
 ZONE2_OFF = {"Z2VOL", "Z2MUT", "Z2INP"}
 
+# Fejlregister (FEATURES.md #21): 8 hardwaretællere + 2 kommandotællere.
+_FAULT_NAMES = ["PRIAAMP", "PRIDAMP", "PRIPWR", "PRITHERMAL", "PRILOSFAN", "PRIHISFAN", "PRIH2LPSU",
+                "PRIGBLTHER", "Z1AIF", "IS"]
+_FAULT_COUNTS = [0, 0, 0, 0, 0, 0, 0, 0, 3, 6]
+DEFAULT_VALUES_FAULTS = {"FCC": f"{len(_FAULT_NAMES):04X}"}
+for _i, (_n, _c) in enumerate(zip(_FAULT_NAMES, _FAULT_COUNTS), start=1):
+    DEFAULT_VALUES_FAULTS[f"FCN{_i:04X}"] = _n
+    DEFAULT_VALUES_FAULTS[f"FCQ{_i:04X}"] = str(_c)
+
 AUDIO_CYCLE = [
     {"Z1AIF": "6", "Z1AIC": "6", "Z1AIN": "Dolby TrueHD Atmos", "Z1SRT": "48"},
     {"Z1AIF": "5", "Z1AIC": "5", "Z1AIN": "DTS-HD MA 7.1", "Z1SRT": "48"},
@@ -80,7 +89,7 @@ AUDIO_CYCLE = [
 
 class FakeAvm:
     def __init__(self, values: dict | None = None, single_client: bool = True) -> None:
-        self.values = dict(DEFAULT_VALUES if values is None else values)
+        self.values = dict({**DEFAULT_VALUES, **DEFAULT_VALUES_FAULTS} if values is None else values)
         self.single_client = single_client
         self.writers: set[asyncio.StreamWriter] = set()
         self.received: list[str] = []
