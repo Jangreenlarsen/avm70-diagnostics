@@ -4,6 +4,15 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.12.0 build 0013] — 2026-10-03 — Lyd-bitdybde
+
+FEATURES.md #19.
+
+**Filer ændret:**
+- `backend/app/protocol/catalog.py`: `Z1BDP` "Bit depth" i lydgruppen (enhed "bit", 0 = No input)
+- `backend/app/tools/fake_avm.py`: `Z1BDP` = 24
+- `backend/tests/`: afkodningstests. Log mode tæller nu 49 parametre
+
 ## [0.11.0 build 0012] — 2026-10-03 — Spærreliste for handlingskoder
 
 FEATURES.md #18.

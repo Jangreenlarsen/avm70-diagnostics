@@ -101,6 +101,7 @@ _COMMANDS = [
     Command("Z1AIR", "Sample rate (name)", AUDIO),
     Command("Z1BRT", "Bitrate", AUDIO, unit="kbps"),
     Command("Z1SRT", "Sample rate", AUDIO, unit="kHz"),
+    Command("Z1BDP", "Bit depth", AUDIO, {"0": "No input"}, unit="bit"),
     Command("Z1DYN", "Dynamic range (Dolby)", AUDIO,
             {"0": "Normal", "1": "Reduced", "2": "Late Night"}, numeric_lookup=True),
     Command("Z1DIA", "Dialog normalization", AUDIO, {"n": "Not applicable"}, unit="dB"),

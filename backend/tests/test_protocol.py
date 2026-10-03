@@ -216,6 +216,8 @@ def test_version_group_is_static_not_polled():
     ("Z1DIA", "-4", "-4 dB"),
     ("GCTXS", "1", "IP only"),
     ("GCFPB", "30", "30 %"),
+    ("Z1BDP", "24", "24 bit"),       # FEATURES.md #19
+    ("Z1BDP", "0", "No input"),
 ])
 def test_decoding_follows_the_official_x40_protocol(code, raw, text):
     assert catalog.decode(code, raw) == text

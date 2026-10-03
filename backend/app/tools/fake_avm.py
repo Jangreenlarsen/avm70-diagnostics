@@ -55,6 +55,7 @@ DEFAULT_VALUES = {
     "Z1AIR": "48 kHz",
     "Z1BRT": "0",
     "Z1SRT": "48",
+    "Z1BDP": "24",
     "Z1DYN": "0",
     "Z1DIA": "-31",
     "Z1VIR": "16",

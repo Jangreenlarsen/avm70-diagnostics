@@ -2,6 +2,10 @@
 
 ---
 
+## v0.12.0 — 2026-10-03 — Bitdybde
+
+- Lydkortet viser nu **Bit depth** (16/24/32 bit). Den kommer også med i rapport, ændringslog og log mode, så den er nyttig ved fejlsøgning af lyd-dropouts.
+
 ## v0.11.0 — 2026-10-03 — Beskyttelse mod farlige kommandoer
 
 - Konsollen og alle andre dele af appen nægter nu at sende AVM70's handlingskommandoer, heller ikke som forespørgsel. Det gælder fx fabriksnulstilling, firmware-opdatering, nulstilling af Wi-Fi og fejltællere, sletning af inputs samt volumen- og testtone-kommandoer. Konsollen forklarer hvorfor.
