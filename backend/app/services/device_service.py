@@ -457,6 +457,7 @@ class DeviceService:
         self.logmode = LogSession(
             interval or self.settings.log_poll_interval, config.DATA_DIR / "logs",
             device=f"{model}, serial {serial}, {self.settings.host}:{self.settings.port}",
+            owner=self.settings.owner,
         )
         if not self.connected:
             self.logmode.note("Started while not connected - the first poll runs when the app connects")

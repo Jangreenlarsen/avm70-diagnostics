@@ -74,7 +74,7 @@ def next_due(started: float, interval: float, now: float) -> float:
 
 
 class LogSession:
-    def __init__(self, interval: float, log_dir: Path, device: str = "") -> None:
+    def __init__(self, interval: float, log_dir: Path, device: str = "", owner: str = "") -> None:
         self.interval = interval
         self.started_at = _now()
         self.stopped_at: datetime | None = None
@@ -96,6 +96,7 @@ class LogSession:
             " ANTHEM AVM 70 - LOG MODE",
             _rule("="),
             f"Log started .......... {self.started_at.astimezone().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}",
+            f"System owner ......... {owner or '-'}",
             f"Device ............... {device}",
             f"Poll interval ........ {interval:g} s",
             "",

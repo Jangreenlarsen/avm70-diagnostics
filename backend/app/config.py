@@ -35,6 +35,11 @@ LOG_FILE = DATA_DIR / "avm70-diagnostics.log"
 logger = logging.getLogger("avm70")
 
 
+# FEATURES.md #16: systemets ejer står i rapporter og logfiler.
+DEFAULT_OWNER = "Jan Green Larsen"
+OWNER_MAX = 100
+
+
 class EnvSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
@@ -46,6 +51,7 @@ class EnvSettings(BaseSettings):
     auto_reconnect: bool = True
     auto_connect: bool = True
     log_poll_interval: float = 5.0
+    owner: str = DEFAULT_OWNER
     app_port: int = 8070
     log_level: str = "INFO"
 
@@ -69,6 +75,7 @@ class DeviceSettings:
     auto_reconnect: bool = True
     auto_connect: bool = True
     log_poll_interval: float = 5.0  # log mode (FEATURES.md #15)
+    owner: str = DEFAULT_OWNER      # FEATURES.md #16
 
 
 FIELDS = tuple(DeviceSettings.__dataclass_fields__)
@@ -105,13 +112,19 @@ def validate(data: dict, base: DeviceSettings | None = None) -> DeviceSettings:
     # En fuld log-cyklus over ~48 parametre tager ca. 2 s på den rigtige enhed.
     if not 2 <= log_poll <= 3600:
         raise SettingsError("Log poll interval must be between 2 and 3600 seconds")
+    owner = merged.get("owner", DEFAULT_OWNER)
+    owner = " ".join(owner.split()) if isinstance(owner, str) else ""
+    if owner == "":
+        raise SettingsError("System owner must not be empty")
+    if len(owner) > OWNER_MAX:
+        raise SettingsError(f"System owner must be at most {OWNER_MAX} characters")
     for flag in ("auto_reconnect", "auto_connect"):
         if not isinstance(merged.get(flag, True), bool):
             raise SettingsError(f"{flag} must be true/false")
     return DeviceSettings(
         host=host, port=port, poll_interval=poll, connect_timeout=conn_to, query_timeout=query_to,
         auto_reconnect=merged.get("auto_reconnect", True), auto_connect=merged.get("auto_connect", True),
-        log_poll_interval=log_poll,
+        log_poll_interval=log_poll, owner=owner,
     )
 
 
@@ -120,7 +133,7 @@ def env_defaults() -> DeviceSettings:
         host=env.avm_host, port=env.avm_port, poll_interval=env.poll_interval,
         connect_timeout=env.connect_timeout, query_timeout=env.query_timeout,
         auto_reconnect=env.auto_reconnect, auto_connect=env.auto_connect,
-        log_poll_interval=env.log_poll_interval,
+        log_poll_interval=env.log_poll_interval, owner=env.owner,
     )
 
 

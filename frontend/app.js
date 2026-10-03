@@ -398,6 +398,7 @@ function readForm() {
     auto_reconnect: f.auto_reconnect.checked,
     auto_connect: f.auto_connect.checked,
     log_poll_interval: Number(f.log_poll_interval.value),
+    owner: f.owner.value,
   };
 }
 
@@ -437,7 +438,8 @@ $("#setup-test").onclick = async (e) => {
 $("#setup-reset").onclick = async () => {
   if (!confirm("Reset to the default values from .env?")) return;
   try {
-    fillForm(await api("POST", "/api/settings/reset"));
+    state.settings = await api("POST", "/api/settings/reset");
+    fillForm(state.settings);
     setupResult("Defaults restored and saved", true);
   } catch (err) {
     setupResult(err.message, false);
@@ -486,6 +488,10 @@ function renderVersions() {
     el("dt", {}, "AVM70 Diagnostics"),
     el("dd", {}, el("span", { class: "val" }, appVersion ? `v${appVersion.version} build ${appVersion.build}` : "—")),
   ));
+  children.push(el("div", { class: "row" },
+    el("dt", {}, "System owner"),
+    el("dd", {}, el("span", { class: "val" }, (state.settings && state.settings.owner) || "—")),
+  ));
   for (const [title, values] of versionSections()) {
     children.push(el("div", { class: "section" }, title));
     for (const v of values) {
@@ -504,7 +510,10 @@ function renderVersions() {
 }
 
 function versionsAsText() {
-  const lines = [`AVM70 Diagnostics: v${appVersion?.version ?? "?"} build ${appVersion?.build ?? "?"}`];
+  const lines = [
+    `AVM70 Diagnostics: v${appVersion?.version ?? "?"} build ${appVersion?.build ?? "?"}`,
+    `System owner: ${(state.settings && state.settings.owner) || "-"}`,
+  ];
   for (const [title, values] of versionSections()) {
     lines.push("", `[${title}]`);
     for (const v of values) lines.push(`${v.label} (${v.code}): ${versionText(v)}`);

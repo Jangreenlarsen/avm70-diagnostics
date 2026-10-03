@@ -126,6 +126,14 @@
       <p class="hint">Saved locally in <code>backend/data/settings.json</code>. Changing host or port makes the app reconnect.</p>
 
       <fieldset>
+        <legend>General</legend>
+        <label class="wide">System owner
+          <input name="owner" required maxlength="100" placeholder="Jan Green Larsen">
+          <small>Shown in the report, the change log and the log mode file</small>
+        </label>
+      </fieldset>
+
+      <fieldset>
         <legend>Connection</legend>
         <label>Host / IP
           <input name="host" required spellcheck="false" placeholder="10.1.1.7">

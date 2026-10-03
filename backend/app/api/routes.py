@@ -188,6 +188,7 @@ async def export_changelog(request: Request) -> Response:
         "model": known["IDM"].raw if "IDM" in known else None,
         "serial": serial,
         "address": f"{dev.settings.host}:{dev.settings.port}",
+        "owner": dev.settings.owner,
     }
     text = changelog.build_text(dev.changelog.to_dict(), device, config.app_version(), now)
     return Response(

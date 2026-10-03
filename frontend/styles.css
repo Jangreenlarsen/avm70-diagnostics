@@ -196,6 +196,7 @@ fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 0; paddi
 legend { color: var(--muted); font-size: 12px; font-weight: 600; padding: 0 4px; }
 fieldset label { display: grid; gap: 3px; font-size: 13px; }
 fieldset label small { color: var(--muted); font-size: 11px; }
+fieldset label.wide { grid-column: 1 / -1; }
 fieldset label.check { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
 fieldset label:first-of-type:has(input[name="host"]) { grid-column: 1 / -1; }
 .setup-result { padding: 8px 10px; border-radius: 6px; background: var(--surface-2); border-left: 3px solid var(--muted); }

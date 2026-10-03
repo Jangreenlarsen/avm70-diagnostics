@@ -4,6 +4,19 @@ Nyeste øverst. Format: `## [version build NNNN] — YYYY-MM-DD — beskrivelse`
 
 ---
 
+## [0.9.0 build 0009] — 2026-10-03 — Systemejer i rapporter og logfiler
+
+FEATURES.md #16.
+
+**Filer ændret:**
+- `backend/app/config.py`: indstillingen `owner` (standard "Jan Green Larsen", `OWNER` i `.env`). Valideres: må ikke være tom i nogen form (tom, kun whitespace, ikke-tekst), whitespace samles, og maks. 100 tegn
+- `backend/app/services/report.py`: "System owner" i rapporthovedet. Afsnittet "App settings" viser også `log_poll_interval` og `owner`
+- `backend/app/services/changelog.py`, `backend/app/api/routes.py`: "System owner" i ændringslog-filens hoved
+- `backend/app/services/logmode.py`, `backend/app/services/device_service.py`: "System owner" i log mode-filens hoved
+- `backend/.env.example`: `LOG_POLL_INTERVAL` og `OWNER`
+- `frontend/index.html`, `app.js`, `styles.css`: nyt "General"-afsnit i ⚙ Setup med "System owner". Ejeren vises i versionsmenuen og i "Copy all". "Defaults" opdaterer nu også appens kendte indstillinger
+- `backend/tests/test_owner.py`: 12 tests (standard, alle former for "tom", trimning, maks. længde, rapport, ændringslog, log mode-fil, Setup → eksport)
+
 ## [0.8.0 build 0008] — 2026-10-03 — Log mode med fast pollingcyklus
 
 FEATURES.md #15.

@@ -2,6 +2,11 @@
 
 ---
 
+## v0.9.0 — 2026-10-03 — Systemejer
+
+- Rapporten, ændringsloggen og log mode-filen oplyser nu øverst **"System owner: Jan Green Larsen"**. Det samme står i versionsmenuen.
+- Ejeren kan ændres i **⚙ Setup → General**.
+
 ## v0.8.0 — 2026-10-03 — Log mode
 
 - Ny fane **Log mode**. Når log mode slås til, polles *alle* parametre med et fast interval (standard 5 s):
